@@ -1,14 +1,32 @@
+extern crate influxdb;
 use pyo3::prelude::*;
 
-/// Formats the sum of two numbers as string.
-#[pyfunction]
-fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-    Ok((a + b).to_string())
+#[pyclass(subclass)]
+pub(crate) struct DB {
+    client: influxdb::Client,
 }
 
-/// A Python module implemented in Rust.
+#[pymethods]
+impl DB {
+    ///
+    /// Instantiate a DB isntance
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - Connection url
+    /// * `name` - Database name
+    ///
+    #[args(url, name)]
+    #[new]
+    pub fn new(url: &str, name: &str) -> PyResult<Self> {
+        let client = influxdb::Client::new(url, name);
+
+        Ok(DB { client })
+    }
+}
+
 #[pymodule]
 fn rflux(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
+    m.add_class::<DB>()?;
     Ok(())
 }
