@@ -18,3 +18,15 @@ db = DB(
 async def test_db_ping():
     ready = await db.ping()
     assert ready
+
+
+@pytest.mark.asyncio
+async def test_write_point():
+    wrote = await db.write(
+        bucket="my-bucket",
+        measurement="test",
+        tag="test",
+        field="test",
+        timestamp=123456789,
+    )
+    assert wrote
