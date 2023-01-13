@@ -2,6 +2,7 @@ from rflux.rflux import DB
 import asyncio
 from dotenv import load_dotenv
 import os
+import pytest
 
 load_dotenv(".env.local")
 token = os.getenv("TOKEN")
@@ -13,8 +14,7 @@ db = DB(
 )
 
 
-async def main():
-    print(await db.ping())
-
-
-asyncio.run(main())
+@pytest.mark.asyncio
+async def test_db_ping():
+    ready = await db.ping()
+    assert ready
