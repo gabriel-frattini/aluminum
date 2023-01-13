@@ -1,4 +1,4 @@
-from rflux.rflux import DB
+from rflux import DB
 import asyncio
 from dotenv import load_dotenv
 import os
