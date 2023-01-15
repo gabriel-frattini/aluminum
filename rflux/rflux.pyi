@@ -1,21 +1,21 @@
-from typing import Optional, Type, List, Dict, Any
+from typing import Optional, Self, Type, List, Dict, Any
 
-class DB:
-    """
-
-    Base class that contains all the methods to interact with the database.
-
-    :param host: The host to connect to
-    :param token: The token to use for authentication
-    :param org: The organization to use
-
-    """
-
-    async def ping(self) -> bool:
+class RFlux:
+    def __new__(self, host: str, token: str, org: str):
         """
-        Ping the influxdb server
 
-        :return: True if the server is up and running, False otherwise
+        Base class that contains all the methods to interact with the database.
+
+        :param host: The host to connect to
+        :param token: The token to use for authentication
+        :param org: The organization to use
+
+        """
+    async def healthy(self) -> bool:
+        """
+        Check if the connection is healthy
+
+        :return: True if the connection is healthy, False otherwise
         """
     async def write(
         self,

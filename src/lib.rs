@@ -2,15 +2,16 @@ extern crate influxdb2;
 
 use futures::prelude::*;
 
+use pyo3::exceptions::PyConnectionError;
 use pyo3::prelude::*;
 
 #[pyclass(subclass)]
-pub(crate) struct DB {
+pub(crate) struct RFlux {
     pub(crate) client: influxdb2::Client,
 }
 
 #[pymethods]
-impl DB {
+impl RFlux {
     ///
     /// Instantiate a DB instance
     ///
@@ -24,28 +25,31 @@ impl DB {
     #[new]
     pub fn new(host: &str, org: String, token: String) -> PyResult<Self> {
         let client = influxdb2::Client::new(host, org, token);
-
-        Ok(DB { client })
+        Ok(RFlux { client })
     }
 
-    /// Ping the database
+    /// Checks database health
     ///
     /// # Returns
     ///
-    /// * `bool` - True if the database is reachable, false otherwise
+    /// * `bool` - True if the database is healthy, false otherwise
     ///
-    /// We use lifetime elision here to avoid having to specify the lifetime of
-    /// the returned string. This is safe because the returned string is
-    /// guaranteed to live as long as the DB instance.
-    ///
-    pub(crate) fn ping<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny> {
+    pub(crate) fn healthy<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny> {
         let client = self.client.clone();
         pyo3_asyncio::tokio::future_into_py_with_locals(
             py,
             pyo3_asyncio::tokio::get_current_locals(py)?,
             async move {
-                let ready = client.ready().await.expect("Failed to ping database");
-                Python::with_gil(|py| Ok(ready.into_py(py)))
+                let status = client
+                    .health()
+                    .await
+                    .map_err(|e| PyConnectionError::new_err(e.to_string()))?.status;
+
+                let healthy = match status {
+                    influxdb2::models::health::Status::Pass => true,
+                    influxdb2::models::health::Status::Fail => false,
+                };
+                Python::with_gil(|py| Ok(healthy.into_py(py)))
             },
         )
     }
@@ -89,7 +93,8 @@ impl DB {
                 client
                     .write(&bucket, stream::iter(points))
                     .await
-                    .expect("Failed to write point");
+                    .map_err(|e| pyo3::exceptions::PyConnectionError::new_err(e.to_string()))?;
+
                 Python::with_gil(|py| Ok(true.into_py(py)))
             },
         )
@@ -98,6 +103,6 @@ impl DB {
 
 #[pymodule]
 fn rflux(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<DB>()?;
+    m.add_class::<RFlux>()?;
     Ok(())
 }

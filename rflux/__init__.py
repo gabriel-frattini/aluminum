@@ -1,3 +1,3 @@
-from rflux.rflux import DB
+from rflux.rflux import RFlux
 
-__all__ = [DB]
+__all__ = [RFlux]
