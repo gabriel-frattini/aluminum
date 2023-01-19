@@ -32,12 +32,45 @@ async def test_incorrect_host():
 
 
 @pytest.mark.asyncio
+async def test_write_with_bad_token():
+    bad_rflux = RFlux(
+        host="http://localhost:8086",
+        token="bad-token",
+        org="my-org",
+    )
+
+    with pytest.raises(ConnectionError):
+        await bad_rflux.write(
+            bucket="my-bucket",
+            measurement="test measurement",
+            tag="test tag",
+            field="test field",
+        )
+
+
+@pytest.mark.asyncio
+async def test_write_with_bad_organization():
+    bad_rflux = RFlux(
+        host="http://localhost:8086",
+        token=token,
+        org="bad-org",
+    )
+
+    with pytest.raises(ConnectionError):
+        await bad_rflux.write(
+            bucket="my-bucket",
+            measurement="test measurement",
+            tag="test tag",
+            field="test field",
+        )
+
+
+@pytest.mark.asyncio
 async def test_write_point():
     wrote = await rflux.write(
         bucket="my-bucket",
-        measurement="test",
-        tag="test",
-        field="test",
-        timestamp=123456789,
+        measurement="test measurement",
+        tag="test tag",
+        field="test field",
     )
     assert wrote

@@ -59,7 +59,6 @@ impl RFlux {
     /// * `measurement` - The measurement to write to
     /// * `fields` - The fields to write
     /// * `tags` - The tags to write
-    /// * `timestamp` - The timestamp to write
     /// # Returns
     /// * `bool` - True if the write was successful, false otherwise
     ///
@@ -81,11 +80,7 @@ impl RFlux {
                 let mut point =
                     influxdb2::models::DataPoint::builder(measurement).field(field, 1.0);
                 if let Some(tag) = tag {
-                    point = point.tag("tag", tag);
-                }
-
-                if let Some(timestamp) = timestamp {
-                    point = point.timestamp(timestamp);
+                    point = point.tag("host", tag);
                 }
 
                 let points = vec![point.build().unwrap()];

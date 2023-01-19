@@ -23,7 +23,6 @@ class RFlux:
         measurement: str,
         field: str,
         tag: str | None,
-        timestamp: int | None,
     ) -> bool:
         """
         Write data to influxdb
@@ -32,6 +31,5 @@ class RFlux:
         :param measurement: The measurement to write to
         :param field: The field to write
         :param tag: The tag to write
-        :param timestamp: The timestamp to write
         :return: True if the write was successful, False otherwise
         """
