@@ -1,4 +1,20 @@
-from typing import Optional, Self, Type, List, Dict, Any
+from typing import Type
+
+from rflux.Model import Model
+
+class RFluxBucket:
+    """
+    RFluxbucket is a class that represents a bucket of models in the database.
+    It contains methods to interact with the bucket.
+    """
+
+    async def insert(self, item: Model) -> None:
+        """
+        Adds a single Model instance to the bucket. The model instance should
+        be of the same type as the model used to get this bucket.
+
+        :param item: the model object to insert
+        """
 
 class RFlux:
     def __new__(self, host: str, token: str, org: str):
@@ -17,19 +33,18 @@ class RFlux:
 
         :return: True if the connection is healthy, False otherwise
         """
-    async def write(
-        self,
-        bucket: str,
-        measurement: str,
-        field: str,
-        tag: str | None,
-    ) -> bool:
+    def create_bucket(self, model: Type[Model]) -> Type[Model]:
         """
-        Write data to influxdb
+        Creates a new bucket for the given model supplied
 
-        :param bucket: The bucket to write to
-        :param measurement: The measurement to write to
-        :param field: The field to write
-        :param tag: The tag to write
-        :return: True if the write was successful, False otherwise
+        :param model: the Model schema to be used for this bucket
+
+        :return: the new bucket
+        """
+    def get_bucket(self, model: Type[Model]) -> RFluxBucket:
+        """
+        Retrieves a bucket instance for the given model
+
+        :param model: the Model schema whose bucket is to be retrieved
+        :return: the bucket instance
         """
