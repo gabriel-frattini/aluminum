@@ -6,19 +6,85 @@ use futures::prelude::*;
 
 use pyo3::exceptions::{PyConnectionError, PyKeyError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyType};
+use pyo3::types::{PyDict, PyList, PyType};
 
-fn extract_from_py_schema(prop: &PyAny) -> PyResult<FieldType> {
-    let prop: &PyDict = prop.downcast()?;
-    if let Some(data_type) = prop.get_item("type") {
-        let data_type: &str = data_type.extract()?;
+#[derive(Debug, influxdb2::FromDataPoint)]
+pub struct ExStruct {
+    ticker: String,
+    value: f64,
+}
 
-        //TODO
-        match data_type {
-            &_ => Ok(FieldType::Str),
+#[derive(FromPyObject)]
+#[pyclass]
+pub struct PyEngine {
+    host: String,
+    token: String,
+    org_id: String,
+}
+
+impl Default for ExStruct {
+    fn default() -> Self {
+        Self {
+            ticker: "".to_string(),
+            value: 0_f64,
         }
-    } else {
-        Ok(FieldType::Str)
+    }
+}
+
+impl FieldType {
+    fn extract_from_py_schema(prop: &PyAny) -> PyResult<Self> {
+        let prop: &PyDict = prop.downcast()?;
+        if let Some(data_type) = prop.get_item("type") {
+            let data_type: &str = data_type.extract()?;
+
+            //TODO
+            match data_type {
+                "array" => {
+                    if let Some(items) = prop.get_item("items") {
+                        match items.downcast::<PyList>() {
+                            Ok(type_list) => {
+                                let items = type_list
+                                    .into_iter()
+                                    .map(|v| Self::extract_from_py_schema(v))
+                                    .collect::<PyResult<Vec<FieldType>>>()?;
+                                Ok(Self::Tuple { items })
+                            }
+                            Err(_) => Ok(Self::List {
+                                items: Box::new(Self::extract_from_py_schema(items)?),
+                            }),
+                        }
+                    } else {
+                        Ok(Self::List {
+                            items: Box::new(Self::Str),
+                        })
+                    }
+                }
+
+                &_ => Ok(Self::Str),
+            }
+        } else {
+            Ok(FieldType::Str)
+        }
+    }
+
+    pub(crate) fn to_dict(&self, py: Python) -> PyResult<PyObject> {
+        let dict = PyDict::new(py);
+        match self {
+            Self::Str => dict.set_item("type", "string")?,
+            Self::List { items } => {
+                dict.set_item("type", "array")?;
+                dict.set_item("items", items.to_dict(py)?)?;
+            }
+            Self::Tuple { items } => {
+                dict.set_item("type", "array")?;
+                let list = PyList::empty(py);
+                for item in items {
+                    list.append(item.to_dict(py)?)?;
+                }
+                dict.set_item("items", list)?;
+            }
+        }
+        Ok(dict.into())
     }
 }
 
@@ -54,6 +120,8 @@ pub(crate) fn transform_point(
 #[derive(Clone, Debug)]
 pub(crate) enum FieldType {
     Str,
+    List { items: Box<FieldType> },
+    Tuple { items: Vec<FieldType> },
 }
 
 #[derive(Clone, Debug)]
@@ -67,7 +135,8 @@ impl Schema {
             let ob = ob.into_py(py);
             let ob: &PyDict = ob.extract(py)?;
             if let Some(props) = ob.get_item("properties") {
-                Schema::from_py_any(props)
+                let prop: &PyDict = props.downcast()?;
+                Schema::from_py_any(prop)
             } else {
                 Err(PyValueError::new_err(
                     "Invalid schema. No 'properties' found",
@@ -76,7 +145,8 @@ impl Schema {
         })
     }
 
-    pub(crate) fn from_py_any(props: &PyAny) -> PyResult<Self> {
+    //schema {'title': 'MockBucket', 'type': 'object', 'properties': {'measurement': {'title': 'Measurement', 'type': 'string'}, 'tag': {'title': 'Tag', 'type': 'string'}, 'field': {'title': 'Field', 'type': 'string'}}, 'required': ['measurement', 'tag', 'field']}
+    pub(crate) fn from_py_any(props: &PyDict) -> PyResult<Self> {
         let props: &PyDict = props.downcast()?;
         let keys = props.keys();
         let mapping = keys
@@ -84,15 +154,24 @@ impl Schema {
             .map(|key| {
                 let value = props.get_item(key).unwrap();
                 let key: String = key.extract()?;
-                let value: FieldType = extract_from_py_schema(value)?;
+                let value: FieldType = FieldType::extract_from_py_schema(value)?;
                 Ok((key, value))
             })
             .collect::<PyResult<HashMap<String, FieldType>>>()?;
         Ok(Self { mapping })
     }
+
+    pub(crate) fn to_dict(&self, py: Python) -> PyResult<PyObject> {
+        let dict = PyDict::new(py);
+        let props = PyDict::new(py);
+        for (k, v) in &self.mapping {
+            props.set_item(k, v.to_dict(py)?)?;
+        }
+        Ok(props.into())
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[pyclass(subclass)]
 pub(crate) struct BucketMeta {
     pub(crate) schema: Box<Schema>,
@@ -101,6 +180,12 @@ pub(crate) struct BucketMeta {
 impl BucketMeta {
     pub(crate) fn new(schema: Box<Schema>) -> Self {
         BucketMeta { schema }
+    }
+
+    pub(crate) fn to_dict(&self, py: Python) -> PyResult<PyObject> {
+        let dict = PyDict::new(py);
+        dict.set_item("schema", self.schema.to_dict(py)?)?;
+        Ok(dict.into())
     }
 }
 impl RFluxBucket {
@@ -148,6 +233,14 @@ impl RFluxBucket {
             },
         )
     }
+    pub(crate) fn to_dict(&self) -> PyResult<PyObject> {
+        Python::with_gil(|py| {
+            let dict = PyDict::new(py);
+            dict.set_item("name", self.name.clone())?;
+            dict.set_item("meta", self.meta.to_dict(py)?)?;
+            Ok(dict.into())
+        })
+    }
 }
 
 #[pyclass(subclass)]
@@ -157,16 +250,48 @@ pub(crate) struct RFlux {
     model_type_map: HashMap<String, Py<PyType>>,
 }
 
+#[pyfunction]
+pub fn create_engine(host: String, token: String, org_id: String) -> PyResult<PyEngine> {
+    Ok(PyEngine {
+        host,
+        token,
+        org_id,
+    })
+}
+
 #[pymethods]
 impl RFlux {
-    #[args(host, org, token)]
     #[new]
-    pub fn new(host: &str, org: String, token: String) -> PyResult<Self> {
-        let client = influxdb2::Client::new(host, org, token);
+    pub fn new(bind: PyEngine) -> PyResult<Self> {
+        let client = influxdb2::Client::new(bind.host, bind.org_id, bind.token);
         Ok(RFlux {
             client,
             buckets_meta: Default::default(),
             model_type_map: Default::default(),
+        })
+    }
+
+    pub(crate) fn collect_all(&mut self, base: Py<PyType>) -> PyResult<PyObject> {
+        Python::with_gil(|py| {
+            let buckets = base.getattr(py, "_get_collected_buckets")?.call0(py)?;
+
+            let buckets = buckets.into_py(py);
+            let ob: &PyDict = buckets.extract(py)?;
+            if let Some(props) = ob.get_item("properties") {
+                let buckets: &PyList = props.get_item("buckets").unwrap().extract()?;
+                for b in buckets.iter() {
+                    let schema = b.getattr("schema")?.call0()?;
+                    let model_name: String = schema.get_item("title").unwrap().extract()?;
+                    let schema = schema.into_py(py);
+                    let py_schema = Schema::from_py_schema(schema)?;
+                    let meta = BucketMeta::new(Box::new(py_schema.clone()));
+
+                    self.buckets_meta.insert(model_name.clone(), meta.clone());
+                    let py_type = b.get_type().into_py(py);
+                    self.model_type_map.insert(model_name.clone(), py_type);
+                }
+            }
+            Ok(py.None())
         })
     }
 
@@ -209,6 +334,14 @@ impl RFlux {
         }
     }
 
+    pub(crate) fn get_buckets(&mut self) -> PyResult<Vec<RFluxBucket>> {
+        Ok(self
+            .buckets_meta
+            .iter()
+            .map(|(name, meta)| RFluxBucket::new(name.clone(), meta.clone(), self.client.clone()))
+            .collect())
+    }
+
     pub(crate) fn create_bucket(&mut self, model: Py<PyType>) -> PyResult<RFluxBucket> {
         Python::with_gil(|py| {
             let schema = model.getattr(py, "schema")?.call0(py)?;
@@ -217,11 +350,63 @@ impl RFlux {
                 Python::with_gil(|py| model.getattr(py, "__qualname__")?.extract(py))?;
 
             let meta = BucketMeta::new(Box::new(schema));
-            self.buckets_meta
-                .insert(model_name.clone(), meta.clone());
+            self.buckets_meta.insert(model_name.clone(), meta.clone());
             self.model_type_map.insert(model_name.clone(), model);
+
+            let client = self.client.clone();
+            let bucket_options = Some(influxdb2::models::PostBucketRequest::new(
+                self.client.org.clone(),
+                model_name.clone(),
+            ));
+            pyo3_asyncio::tokio::future_into_py_with_locals(
+                py,
+                pyo3_asyncio::tokio::get_current_locals(py)?,
+                async move {
+                    client
+                        .create_bucket(bucket_options)
+                        .await
+                        .map_err(|e| pyo3::exceptions::PyConnectionError::new_err(e.to_string()))?;
+                    Python::with_gil(|py| Ok(true.into_py(py)))
+                },
+            )
+            .map_err(|e| pyo3::exceptions::PyConnectionError::new_err(e.to_string()))?;
+
             Ok(RFluxBucket::new(model_name, meta, self.client.clone()))
         })
+    }
+
+    pub(crate) fn delete_bucket<'a>(
+        &mut self,
+        py: Python<'a>,
+        model: Py<PyType>,
+    ) -> PyResult<&'a PyAny> {
+        let model_name: String =
+            Python::with_gil(|py| model.getattr(py, "__qualname__")?.extract(py))?;
+        self.buckets_meta.remove(&model_name);
+        self.model_type_map.remove(&model_name);
+
+        let client = self.client.clone();
+        pyo3_asyncio::tokio::future_into_py_with_locals(
+            py,
+            pyo3_asyncio::tokio::get_current_locals(py)?,
+            async move {
+                let buckets = client
+                    .list_buckets(None)
+                    .await
+                    .map_err(|e| pyo3::exceptions::PyConnectionError::new_err(e.to_string()))?;
+
+                let bucket = buckets.buckets.into_iter().find(|b| b.name == model_name);
+
+                if let Some(bucket) = bucket {
+                    if let Some(bucket_id) = bucket.id {
+                        client.delete_bucket(&bucket_id).await.map_err(|e| {
+                            pyo3::exceptions::PyConnectionError::new_err(e.to_string())
+                        })?;
+                    }
+                };
+                Python::with_gil(|py| Ok(true.into_py(py)))
+            },
+        )
     }
 }
 
@@ -229,5 +414,6 @@ impl RFlux {
 fn rflux(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<RFlux>()?;
     m.add_class::<RFluxBucket>()?;
+    m.add_function(wrap_pyfunction!(create_engine, m)?)?;
     Ok(())
 }

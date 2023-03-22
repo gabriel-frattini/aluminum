@@ -1,71 +1,42 @@
-from rflux import RFlux, Model
 import asyncio
+from rflux import RFlux, Base
 from dotenv import load_dotenv
 import os
 import pytest
+from rflux.Model import create_engine
 
-load_dotenv(".env.local")
-token = os.getenv("TOKEN") or ""
-
-
-def get_rflux_instance():
-    return RFlux(
-        host="http://localhost:8086",
-        token=token,
-        org="my-org",
-    )
-
-
-class Bucket(Model):
-    measurement: str
-    tag: str
-    field: str
+from test.conftest import MockBucket, token
 
 
 @pytest.mark.asyncio
-async def test_healthy_conn():
-    rflux = get_rflux_instance()
-    ready = await rflux.healthy()
+async def test_healthy_conn(orm):
+    ready = await orm.healthy()
     assert ready
 
 
 @pytest.mark.asyncio
-async def test_incorrect_host():
-    bad_rflux = RFlux(
-        host="http://localhost:8085",
+async def test_bad_engine():
+    bad_engine = create_engine(
+        host="http://localhost:1337",
         token=token,
-        org="my-org",
+        org_id="7e1e96f08517702b",
     )
+    rflux = RFlux(bind=bad_engine)
     with pytest.raises(ConnectionError):
-        await bad_rflux.healthy()
+        await rflux.healthy()
 
 
 @pytest.mark.asyncio
-async def test_create_bucket():
-    rflux = get_rflux_instance()
-    bucket = rflux.create_bucket(Bucket)
+async def test_get_bucket(orm: RFlux):
+    bucket = orm.get_bucket(MockBucket)
     assert bucket
-
-
-@pytest.mark.asyncio
-async def test_get_bucket():
-    rflux = get_rflux_instance()
-    rflux.create_bucket(Bucket)
-    bucket = rflux.get_bucket(Bucket)
-
-    assert bucket
-
-
-@pytest.mark.asyncio
-async def test_insert_to_bucket():
-    rflux = get_rflux_instance()
-    rflux.create_bucket(Bucket)
-    bucket = rflux.get_bucket(Bucket)
-    measurement = Bucket(
-        measurement="measurement test",
-        tag="tag test",
-        field="field test",
-    )
-    inserted = await bucket.insert(measurement)
-
-    assert inserted
+    assert bucket.to_dict() == {
+        "name": "MockBucket",
+        "meta": {
+            "schema": {
+                "field": {"type": "string"},
+                "measurement": {"type": "string"},
+                "tag": {"type": "string"},
+            }
+        },
+    }

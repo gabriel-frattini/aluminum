@@ -1,31 +1,40 @@
 from typing import Type
 
-from rflux.Model import Model
+from rflux.Model import Base, Engine
 
 class RFluxBucket:
     """
     RFluxbucket is a class that represents a bucket of models in the database.
-    It contains methods to interact with the bucket.
+
+    It contains all the methods to interact with the bucket.
     """
 
-    async def insert(self, item: Model) -> None:
+    async def insert(self, item: Base) -> None:
         """
         Adds a single Model instance to the bucket. The model instance should
         be of the same type as the model used to get this bucket.
 
         :param item: the model object to insert
         """
+    def to_dict(self) -> dict:
+        """
+        Converts the bucket to a dictionary.
+
+        :return: the dictionary representation of the bucket
+        """
 
 class RFlux:
-    def __new__(self, host: str, token: str, org: str):
+    """
+    RFlux is the main class that contains all the methods to interact with the
+    database.
+    """
+
+    def __new__(cls, bind: Engine):
         """
 
         Base class that contains all the methods to interact with the database.
 
-        :param host: The host to connect to
-        :param token: The token to use for authentication
-        :param org: The organization to use
-
+        :param bind: the Engine instance to bind to
         """
     async def healthy(self) -> bool:
         """
@@ -33,7 +42,7 @@ class RFlux:
 
         :return: True if the connection is healthy, False otherwise
         """
-    def create_bucket(self, model: Type[Model]) -> Type[Model]:
+    def create_bucket(self, model: Type[Base]) -> Type[Model]:
         """
         Creates a new bucket for the given model supplied
 
@@ -41,10 +50,28 @@ class RFlux:
 
         :return: the new bucket
         """
-    def get_bucket(self, model: Type[Model]) -> RFluxBucket:
+    def get_bucket(self, model: Type[Base]) -> RFluxBucket:
         """
-        Retrieves a bucket instance for the given model
+        Retrieves a bucket instance for the given model.
 
         :param model: the Model schema whose bucket is to be retrieved
         :return: the bucket instance
+        """
+    def get_buckets(self) -> list[RFluxBucket]:
+        """
+        Retrieves all the buckets.
+
+        :return: a list of all the buckets
+        """
+    async def delete_bucket(self, model: Type[Base]) -> bool:
+        """
+        Deletes the bucket for the given model.
+
+        :param model: the Model schema whose bucket is to be deleted
+        """
+    def collect_all(self, base: Type[Base]) -> None:
+        """
+        Fills the metadata for the given model.
+
+        :param model: the Model schema whose metadata is to be filled
         """
