@@ -9,12 +9,12 @@ class RFluxBucket:
     It contains all the methods to interact with the bucket.
     """
 
-    async def insert(self, item: Base) -> None:
+    async def add(self, item: Base) -> None:
         """
         Adds a single Model instance to the bucket. The model instance should
         be of the same type as the model used to get this bucket.
 
-        :param item: the model object to insert
+        :param item: the model object to add
         """
     def to_dict(self) -> dict:
         """
@@ -42,7 +42,7 @@ class RFlux:
 
         :return: True if the connection is healthy, False otherwise
         """
-    def create_bucket(self, model: Type[Base]) -> Type[Model]:
+    async def create_bucket(self, model: Type[Base]) -> Type[Base]:
         """
         Creates a new bucket for the given model supplied
 
@@ -69,7 +69,7 @@ class RFlux:
 
         :param model: the Model schema whose bucket is to be deleted
         """
-    def collect_all(self, base: Type[Base]) -> None:
+    def _autoload(self, base: Type[Base]) -> None:
         """
         Fills the metadata for the given model.
 
