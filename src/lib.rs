@@ -174,21 +174,21 @@ impl BucketMeta {
         Ok(dict.into())
     }
 }
-impl RFluxBucket {
+impl _Bucket {
     pub(crate) fn new(name: String, meta: BucketMeta, client: influxdb2::Client) -> Self {
         Self { name, meta, client }
     }
 }
 
 #[pyclass(subclass)]
-pub(crate) struct RFluxBucket {
+pub(crate) struct _Bucket {
     pub(crate) name: String,
     pub(crate) meta: BucketMeta,
     pub(crate) client: influxdb2::Client,
 }
 
 #[pymethods]
-impl RFluxBucket {
+impl _Bucket {
     pub(crate) fn add<'b>(&self, py: Python<'b>, item: Py<PyAny>) -> PyResult<&'b PyAny> {
         let client = self.client.clone();
         let name = self.name.clone();
@@ -230,7 +230,7 @@ impl RFluxBucket {
 }
 
 #[pyclass(subclass)]
-pub(crate) struct RFlux {
+pub(crate) struct _Registry {
     pub(crate) client: influxdb2::Client,
     buckets_meta: HashMap<String, BucketMeta>,
     model_type_map: HashMap<String, Py<PyType>>,
@@ -250,11 +250,11 @@ pub(crate) async fn list_buckets(client: &Client) -> Result<Buckets, influxdb2::
 }
 
 #[pymethods]
-impl RFlux {
+impl _Registry {
     #[new]
     pub fn new(bind: PyEngine) -> PyResult<Self> {
         let client = influxdb2::Client::new(bind.host, bind.org_id, bind.token);
-        Ok(RFlux {
+        Ok(_Registry {
             client,
             buckets_meta: Default::default(),
             model_type_map: Default::default(),
@@ -307,11 +307,11 @@ impl RFlux {
         )
     }
 
-    pub(crate) fn get_bucket(&mut self, model: Py<PyType>) -> PyResult<RFluxBucket> {
+    pub(crate) fn get_bucket(&mut self, model: Py<PyType>) -> PyResult<_Bucket> {
         let model_name: String = Python::with_gil(|py| model.getattr(py, "__name__")?.extract(py))?;
 
         if let Some(meta) = self.buckets_meta.get(&model_name) {
-            Ok(RFluxBucket::new(
+            Ok(_Bucket::new(
                 model_name,
                 meta.clone(),
                 self.client.clone(),
@@ -324,11 +324,11 @@ impl RFlux {
         }
     }
 
-    pub(crate) fn get_buckets(&mut self) -> PyResult<Vec<RFluxBucket>> {
+    pub(crate) fn get_buckets(&mut self) -> PyResult<Vec<_Bucket>> {
         Ok(self
             .buckets_meta
             .iter()
-            .map(|(name, meta)| RFluxBucket::new(name.clone(), meta.clone(), self.client.clone()))
+            .map(|(name, meta)| _Bucket::new(name.clone(), meta.clone(), self.client.clone()))
             .collect())
     }
 
@@ -398,9 +398,9 @@ impl RFlux {
 }
 
 #[pymodule]
-fn rflux(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<RFlux>()?;
-    m.add_class::<RFluxBucket>()?;
+fn adeline(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<_Registry>()?;
+    m.add_class::<_Bucket>()?;
     m.add_function(wrap_pyfunction!(create_engine, m)?)?;
     Ok(())
 }

@@ -1,13 +1,13 @@
 import pytest
-from rflux.Model import create_engine
-from rflux.orm import FluxSession
+from adeline import create_engine
+from adeline import Session
 
 from test.conftest import MockBucket, token
 
 
 @pytest.mark.asyncio
-async def test_healthy_conn(orm):
-    ready = await orm.healthy()
+async def test_healthy_conn(session):
+    ready = await session.healthy()
     assert ready
 
 
@@ -18,14 +18,14 @@ async def test_bad_engine():
         token=token,
         org_id="7e1e96f08517702b",
     )
-    rflux = FluxSession(bind=bad_engine)
+    session = Session(bind=bad_engine)
     with pytest.raises(ConnectionError):
-        await rflux.healthy()
+        await session.healthy()
 
 
 @pytest.mark.asyncio
-async def test_get_bucket(orm: FluxSession):
-    bucket = orm.get_bucket(MockBucket)
+async def test_get_bucket(session: Session):
+    bucket = session.get_bucket(MockBucket)
     assert bucket
     assert bucket.to_dict() == {
         "name": "MockBucket",
@@ -40,15 +40,15 @@ async def test_get_bucket(orm: FluxSession):
 
 
 @pytest.mark.asyncio
-async def test_get_buckets(orm: FluxSession):
+async def test_get_buckets(session: Session):
     class MockBucket2(MockBucket):
         measurement: str
         tag: str
         field: str
 
-    await orm.create_bucket(MockBucket2)
+    await session.create_bucket(MockBucket2)
 
-    buckets = orm.get_buckets()
+    buckets = session.get_buckets()
     assert buckets
     assert sorted(
         [bucket.to_dict() for bucket in buckets], key=lambda x: x["name"]
@@ -74,18 +74,19 @@ async def test_get_buckets(orm: FluxSession):
             },
         },
     ]
+    await session.delete_bucket(MockBucket2)
 
 
 @pytest.mark.asyncio
-async def test_create_bucket(orm: FluxSession):
-    await orm.create_bucket(MockBucket)
-    assert orm.get_bucket(MockBucket)
+async def test_create_bucket(session: Session):
+    await session.create_bucket(MockBucket)
+    assert session.get_bucket(MockBucket)
 
 
 @pytest.mark.asyncio
-async def test_add_measurement(orm: FluxSession):
-    await orm.create_bucket(MockBucket)
-    bucket = orm.get_bucket(MockBucket)
+async def test_add_measurement(session: Session):
+    await session.create_bucket(MockBucket)
+    bucket = session.get_bucket(MockBucket)
     assert bucket
     measurement = MockBucket(
         measurement="measurement 7",
@@ -97,13 +98,13 @@ async def test_add_measurement(orm: FluxSession):
 
 
 @pytest.mark.asyncio
-async def test_delete_bucket(orm: FluxSession):
+async def test_delete_bucket(session: Session):
     class DeleteMockBucket(MockBucket):
         measurement: str
         tag: str
         field: str
 
-    await orm.create_bucket(DeleteMockBucket)
-    await orm.delete_bucket(DeleteMockBucket)
+    await session.create_bucket(DeleteMockBucket)
+    await session.delete_bucket(DeleteMockBucket)
 
-    assert not orm.get_bucket(DeleteMockBucket)
+    assert not session.get_bucket(DeleteMockBucket)
