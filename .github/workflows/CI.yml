@@ -17,7 +17,7 @@ jobs:
         with:
           manylinux: auto
           before-script-linux: |
-            apt install -y libssl-dev
+            yum install -y openssl-devel
           command: build
           args: --release --sdist -o dist --find-interpreter
       - name: Upload wheels
