@@ -1,10 +1,10 @@
 from typing import Type
-from adeline.engine import Engine
+from aluminum.abstract import AbstractBucket, AbstractRegistry, AbstractStore
+from aluminum.engine import Engine
 
-from adeline.mapper import Base
-from adeline.bucket import Bucket
+from aluminum.mapper import Base
 
-class _Bucket:
+class _Bucket(AbstractBucket):
     """
     _Bucket is a class that represents a bucket of models in the database.
 
@@ -25,13 +25,13 @@ class _Bucket:
         :return: the dictionary representation of the bucket
         """
 
-class _Registry:
+class _Store(AbstractStore):
     """
     RFlux is the main class that contains all the methods to interact with the
     database.
     """
 
-    def __new__(cls, bind: Engine):
+    def __new__(cls, bind: Engine, registry: AbstractRegistry):
         """
 
         Base class that contains all the methods to interact with the database.
@@ -44,7 +44,7 @@ class _Registry:
 
         :return: True if the connection is healthy, False otherwise
         """
-    async def create_bucket(self, model: Type[Base]) -> Bucket:
+    async def create_bucket(self, model: Type[Base]) -> AbstractBucket:
         """
         Creates a new bucket for the given model supplied
 
@@ -52,14 +52,14 @@ class _Registry:
 
         :return: the new bucket
         """
-    def get_bucket(self, model: Type[Base]) -> Bucket:
+    def get_bucket(self, model: Type[Base]) -> AbstractBucket:
         """
         Retrieves a bucket instance for the given model.
 
         :param model: the Model schema whose bucket is to be retrieved
         :return: the bucket instance
         """
-    def get_buckets(self) -> list[Bucket]:
+    def get_buckets(self) -> list[AbstractBucket]:
         """
         Retrieves all the buckets.
 
@@ -71,6 +71,12 @@ class _Registry:
 
         :param model: the Model schema whose bucket is to be deleted
         """
+
+class _Registry(AbstractRegistry):
+    """
+    _Registry is a class that contains all the metadata for the models.
+    """
+
     def _autoload(self, base: Type[Base]) -> None:
         """
         Fills the metadata for the given model.

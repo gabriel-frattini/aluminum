@@ -1,12 +1,12 @@
-from adeline.adeline import _Bucket
-from adeline.mapper import Base
+from aluminum.abstract import AbstractBucket
+from aluminum.base import Base
 
 
 class Bucket:
 
-    _bucket: _Bucket
+    _bucket: AbstractBucket
 
-    def __init__(self, bucket: _Bucket):
+    def __init__(self, bucket: AbstractBucket):
         self._bucket = bucket
 
     async def add(self, item: Base) -> None:

@@ -3,7 +3,7 @@
 from pydantic import BaseModel
 
 
-class Mapper:
+class _Mapper:
     _collected_buckets: dict[str, dict[str, list[BaseModel]]] = {
         "properties": {"buckets": []}
     }
@@ -15,8 +15,8 @@ class Mapper:
 class Base(BaseModel):
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        Mapper()._collect_bucket(cls)
+        _Mapper()._collect_bucket(cls)
 
     @staticmethod
     def _get_collected_buckets():
-        return Mapper()._collected_buckets
+        return _Mapper()._collected_buckets

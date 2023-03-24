@@ -4,7 +4,9 @@ use std::collections::HashMap;
 
 use futures::prelude::*;
 
-use influxdb2::models::Buckets;
+use influxdb2::models::data_point::DataPoint;
+use influxdb2::models::health::Status;
+use influxdb2::models::PostBucketRequest;
 use influxdb2::Client;
 use pyo3::exceptions::{PyConnectionError, PyKeyError, PyValueError};
 use pyo3::prelude::*;
@@ -123,7 +125,7 @@ impl Schema {
             let ob: &PyDict = ob.extract(py)?;
             if let Some(props) = ob.get_item("properties") {
                 let prop: &PyDict = props.downcast()?;
-                Schema::from_py_any(prop)
+                Schema::from_py_dict(prop)
             } else {
                 Err(PyValueError::new_err(
                     "Invalid schema. No 'properties' found",
@@ -132,7 +134,7 @@ impl Schema {
         })
     }
 
-    pub(crate) fn from_py_any(props: &PyDict) -> PyResult<Self> {
+    pub(crate) fn from_py_dict(props: &PyDict) -> PyResult<Self> {
         let props: &PyDict = props.downcast()?;
         let keys = props.keys();
         let mapping = keys
@@ -148,7 +150,6 @@ impl Schema {
     }
 
     pub(crate) fn to_dict(&self, py: Python) -> PyResult<PyObject> {
-        let dict = PyDict::new(py);
         let props = PyDict::new(py);
         for (k, v) in &self.mapping {
             props.set_item(k, v.to_dict(py)?)?;
@@ -175,7 +176,7 @@ impl BucketMeta {
     }
 }
 impl _Bucket {
-    pub(crate) fn new(name: String, meta: BucketMeta, client: influxdb2::Client) -> Self {
+    pub(crate) fn new(name: String, meta: BucketMeta, client: Client) -> Self {
         Self { name, meta, client }
     }
 }
@@ -184,7 +185,7 @@ impl _Bucket {
 pub(crate) struct _Bucket {
     pub(crate) name: String,
     pub(crate) meta: BucketMeta,
-    pub(crate) client: influxdb2::Client,
+    pub(crate) client: Client,
 }
 
 #[pymethods]
@@ -197,7 +198,7 @@ impl _Bucket {
         let records = transform_point(&schema, &item)?;
         let (measurement, records) = records;
 
-        let mut point = influxdb2::models::data_point::DataPoint::builder(measurement);
+        let mut point = DataPoint::builder(measurement);
         for (k, v) in records {
             if k == "field" {
                 point = point.field(k.clone(), v.clone());
@@ -230,8 +231,8 @@ impl _Bucket {
 }
 
 #[pyclass(subclass)]
+#[derive(Clone)]
 pub(crate) struct _Registry {
-    pub(crate) client: influxdb2::Client,
     buckets_meta: HashMap<String, BucketMeta>,
     model_type_map: HashMap<String, Py<PyType>>,
 }
@@ -245,17 +246,11 @@ pub fn create_engine(host: String, token: String, org_id: String) -> PyResult<Py
     })
 }
 
-pub(crate) async fn list_buckets(client: &Client) -> Result<Buckets, influxdb2::RequestError> {
-    client.list_buckets(None).await
-}
-
 #[pymethods]
 impl _Registry {
     #[new]
-    pub fn new(bind: PyEngine) -> PyResult<Self> {
-        let client = influxdb2::Client::new(bind.host, bind.org_id, bind.token);
+    pub fn new() -> PyResult<Self> {
         Ok(_Registry {
-            client,
             buckets_meta: Default::default(),
             model_type_map: Default::default(),
         })
@@ -285,6 +280,21 @@ impl _Registry {
             Ok(py.None())
         })
     }
+}
+
+#[pyclass(subclass)]
+struct _Store {
+    client: Client,
+    registry: _Registry,
+}
+
+#[pymethods]
+impl _Store {
+    #[new]
+    pub fn new(bind: PyEngine, registry: _Registry) -> PyResult<Self> {
+        let client = Client::new(&bind.host, &bind.org_id, &bind.token);
+        Ok(_Store { client, registry })
+    }
 
     pub(crate) fn healthy<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny> {
         let client = self.client.clone();
@@ -299,8 +309,8 @@ impl _Registry {
                     .status;
 
                 let healthy = match status {
-                    influxdb2::models::health::Status::Pass => true,
-                    influxdb2::models::health::Status::Fail => false,
+                    Status::Pass => true,
+                    Status::Fail => false,
                 };
                 Python::with_gil(|py| Ok(healthy.into_py(py)))
             },
@@ -310,15 +320,11 @@ impl _Registry {
     pub(crate) fn get_bucket(&mut self, model: Py<PyType>) -> PyResult<_Bucket> {
         let model_name: String = Python::with_gil(|py| model.getattr(py, "__name__")?.extract(py))?;
 
-        if let Some(meta) = self.buckets_meta.get(&model_name) {
-            Ok(_Bucket::new(
-                model_name,
-                meta.clone(),
-                self.client.clone(),
-            ))
+        if let Some(meta) = self.registry.buckets_meta.get(&model_name) {
+            Ok(_Bucket::new(model_name, meta.clone(), self.client.clone()))
         } else {
             Err(PyKeyError::new_err(format!(
-                "{} has not yet been created on the store",
+                "{} does not exist in the registry",
                 model_name
             )))
         }
@@ -326,6 +332,7 @@ impl _Registry {
 
     pub(crate) fn get_buckets(&mut self) -> PyResult<Vec<_Bucket>> {
         Ok(self
+            .registry
             .buckets_meta
             .iter()
             .map(|(name, meta)| _Bucket::new(name.clone(), meta.clone(), self.client.clone()))
@@ -342,14 +349,13 @@ impl _Registry {
         let model_name: String = Python::with_gil(|py| model.getattr(py, "__name__")?.extract(py))?;
 
         let meta = BucketMeta::new(Box::new(schema));
-        self.buckets_meta.insert(model_name.clone(), meta);
-        self.model_type_map.insert(model_name.clone(), model);
+        self.registry.buckets_meta.insert(model_name.clone(), meta);
+        self.registry
+            .model_type_map
+            .insert(model_name.clone(), model);
 
         let client = self.client.clone();
-        let bucket_options = Some(influxdb2::models::PostBucketRequest::new(
-            self.client.org.clone(),
-            model_name,
-        ));
+        let bucket_options = Some(PostBucketRequest::new(self.client.org.clone(), model_name));
         pyo3_asyncio::tokio::future_into_py_with_locals(
             py,
             pyo3_asyncio::tokio::get_current_locals(py)?,
@@ -358,7 +364,7 @@ impl _Registry {
                     .create_bucket(bucket_options)
                     .await
                     .map_err(|e| pyo3::exceptions::PyConnectionError::new_err(e.to_string()))?;
-                Python::with_gil(|py| Ok(true.into_py(py)))
+                Python::with_gil(|py| Ok(py.None()))
             },
         )
     }
@@ -369,8 +375,8 @@ impl _Registry {
         model: Py<PyType>,
     ) -> PyResult<&'a PyAny> {
         let model_name: String = Python::with_gil(|py| model.getattr(py, "__name__")?.extract(py))?;
-        self.buckets_meta.remove(&model_name);
-        self.model_type_map.remove(&model_name);
+        self.registry.buckets_meta.remove(&model_name);
+        self.registry.model_type_map.remove(&model_name);
 
         let client = self.client.clone();
         pyo3_asyncio::tokio::future_into_py_with_locals(
@@ -391,15 +397,17 @@ impl _Registry {
                         })?;
                     }
                 };
-                Python::with_gil(|py| Ok(true.into_py(py)))
+                Python::with_gil(|py| Ok(py.None()))
             },
         )
     }
 }
 
 #[pymodule]
-fn adeline(_py: Python, m: &PyModule) -> PyResult<()> {
+fn aluminum(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<_Store>()?;
     m.add_class::<_Registry>()?;
+    m.add_class::<PyEngine>()?;
     m.add_class::<_Bucket>()?;
     m.add_function(wrap_pyfunction!(create_engine, m)?)?;
     Ok(())
