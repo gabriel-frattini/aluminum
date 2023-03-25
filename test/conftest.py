@@ -16,7 +16,7 @@ org_id = os.getenv("ORG_ID") or ""
 class MockBucket(Base):
     measurement: str
     tag: str
-    field: str
+    field: int
 
 
 @pytest.fixture(scope="function", autouse=True)

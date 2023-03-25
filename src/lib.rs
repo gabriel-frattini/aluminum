@@ -26,8 +26,15 @@ impl FieldType {
         if let Some(data_type) = prop.get_item("type") {
             let data_type: &str = data_type.extract()?;
 
-            //TODO
             match data_type {
+                "null" => Ok(Self::None),
+                "boolean" => Ok(Self::Bool),
+                "string" => Ok(Self::Str),
+                "number" => Ok(Self::Float),
+                "integer" => Ok(Self::Int),
+                "object" => Ok(Self::Dict {
+                    value: Box::new(Self::Str),
+                }),
                 "array" => {
                     if let Some(items) = prop.get_item("items") {
                         match items.downcast::<PyList>() {
@@ -48,11 +55,10 @@ impl FieldType {
                         })
                     }
                 }
-
                 &_ => Ok(Self::Str),
             }
         } else {
-            Ok(FieldType::Str)
+            Ok(Self::Str)
         }
     }
 
@@ -72,6 +78,14 @@ impl FieldType {
                 }
                 dict.set_item("items", list)?;
             }
+            Self::Dict { value } => {
+                dict.set_item("type", "object")?;
+                dict.set_item("properties", value.to_dict(py)?)?;
+            }
+            Self::Int => dict.set_item("type", "integer")?,
+            Self::Float => dict.set_item("type", "number")?,
+            Self::Bool => dict.set_item("type", "boolean")?,
+            Self::None => dict.set_item("type", "null")?,
         }
         Ok(dict.into())
     }
@@ -108,9 +122,14 @@ pub(crate) fn transform_point(
 
 #[derive(Clone, Debug)]
 pub(crate) enum FieldType {
-    Str,
+    Dict { value: Box<FieldType> },
     List { items: Box<FieldType> },
     Tuple { items: Vec<FieldType> },
+    Str,
+    Int,
+    Float,
+    Bool,
+    None,
 }
 
 #[derive(Clone, Debug)]

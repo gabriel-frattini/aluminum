@@ -31,7 +31,7 @@ async def test_get_buckets(store: Store):
     class MockBucket2(Base):
         measurement: str
         tag: str
-        field: str
+        field: int
 
     await store.create_bucket(MockBucket)
     await store.create_bucket(MockBucket2)
@@ -45,7 +45,7 @@ async def test_get_buckets(store: Store):
             "name": "MockBucket",
             "meta": {
                 "schema": {
-                    "field": {"type": "string"},
+                    "field": {"type": "integer"},
                     "measurement": {"type": "string"},
                     "tag": {"type": "string"},
                 }
@@ -55,7 +55,7 @@ async def test_get_buckets(store: Store):
             "name": "MockBucket2",
             "meta": {
                 "schema": {
-                    "field": {"type": "string"},
+                    "field": {"type": "integer"},
                     "measurement": {"type": "string"},
                     "tag": {"type": "string"},
                 }
@@ -74,7 +74,7 @@ async def test_create_bucket(store: Store):
         "name": "MockBucket",
         "meta": {
             "schema": {
-                "field": {"type": "string"},
+                "field": {"type": "integer"},
                 "measurement": {"type": "string"},
                 "tag": {"type": "string"},
             }
@@ -90,7 +90,7 @@ async def test_add_measurement(store: Store):
     measurement = MockBucket(
         measurement="test measurement",
         tag="test tag",
-        field="test field",
+        field=10,
     )
 
     await bucket.add(measurement)
