@@ -6,8 +6,9 @@ use futures::prelude::*;
 
 use influxdb2::models::data_point::DataPoint;
 use influxdb2::models::health::Status;
-use influxdb2::models::PostBucketRequest;
+use influxdb2::models::{PostBucketRequest, Query};
 use influxdb2::Client;
+use influxdb2::FromDataPoint;
 use pyo3::exceptions::{PyConnectionError, PyKeyError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyType};
@@ -103,20 +104,18 @@ pub(crate) fn transform_point(
     let mut records: Vec<(String, String)> = Vec::with_capacity(obj.len());
     let mut measurement = String::new();
 
-    for (field, type_) in &schema.mapping {
-        if let Some(v) = obj.get(field) {
-            // TODO
-            match type_ {
-                _ => {
-                    if field == "measurement" {
-                        measurement = v.to_string();
-                    }
-                    records.push((field.clone(), v.to_string()));
-                }
-            };
-        }
+    for field in schema.mapping.keys() {
+        if let Some(value) = obj.get(field) {
+            if field == "measurement" {
+                measurement = value.to_string();
+            }
+            records.push((field.clone(), value.to_string()));
+        };
     }
 
+    // E.g.:
+    // ("test measurement", [("field", "10"), ("measurement", "test measurement"), ("tag", "test tag")])
+    //
     Ok((measurement, records))
 }
 
@@ -207,6 +206,23 @@ pub(crate) struct _Bucket {
     pub(crate) client: Client,
 }
 
+#[derive(FromDataPoint, Debug)]
+pub struct QueryResult {
+    pub measurement: String,
+    pub tag: String,
+    pub field: String,
+}
+
+impl Default for QueryResult {
+    fn default() -> Self {
+        Self {
+            measurement: String::new(),
+            tag: String::new(),
+            field: String::new(),
+        }
+    }
+}
+
 #[pymethods]
 impl _Bucket {
     pub(crate) fn add<'b>(&self, py: Python<'b>, item: Py<PyAny>) -> PyResult<&'b PyAny> {
@@ -246,6 +262,39 @@ impl _Bucket {
             dict.set_item("meta", self.meta.to_dict(py)?)?;
             Ok(dict.into())
         })
+    }
+
+    pub(crate) fn raw_query<'a>(&self, query: String, py: Python<'a>) -> PyResult<&'a PyAny> {
+        let client = self.client.clone();
+        let name = self.name.clone();
+
+        pyo3_asyncio::tokio::future_into_py_with_locals(
+            py,
+            pyo3_asyncio::tokio::get_current_locals(py)?,
+            async move {
+                let query = Query::new(query);
+                let stream: Vec<QueryResult> = client
+                    .query::<QueryResult>(Some(query))
+                    .await
+                    .map_err(|e| pyo3::exceptions::PyConnectionError::new_err(e.to_string()))?;
+
+                Python::with_gil(|py| {
+                    let result = PyDict::new(py);
+                    result.set_item("name", name)?;
+                    let list = PyList::empty(py);
+                    for item in stream {
+                        let dict = PyDict::new(py);
+                        dict.set_item("measurement", item.measurement)?;
+                        dict.set_item("tag", item.tag)?;
+                        dict.set_item("field", item.field)?;
+                        list.append(dict)?;
+                    }
+                    result.set_item("data", list)?;
+
+                    Ok(Into::<PyObject>::into(result))
+                })
+            },
+        )
     }
 }
 

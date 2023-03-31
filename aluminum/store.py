@@ -1,5 +1,6 @@
 from typing import Optional, Type
 from aluminum.base import Base
+from aluminum.bucket import Bucket
 from aluminum.engine import Engine
 from aluminum.aluminum import _Store, _Registry
 from aluminum.abstract import AbstractBucket, AbstractRegistry, AbstractStore
@@ -16,7 +17,8 @@ class Store:
 
     def get_bucket(self, model: Type[Base]) -> Optional[AbstractBucket]:
         try:
-            return self._store.get_bucket(model)
+            _bucket = self._store.get_bucket(model)
+            return Bucket(_bucket)
         except KeyError:
             return None
 

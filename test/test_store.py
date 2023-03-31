@@ -7,7 +7,7 @@ from test.conftest import MockBucket, token
 
 
 @pytest.mark.asyncio
-async def test_healthy_conn(store):
+async def test_healthy_conn(store: Store):
     ready = await store.healthy()
     assert ready
 
@@ -26,8 +26,6 @@ async def test_bad_engine():
 
 @pytest.mark.asyncio
 async def test_get_buckets(store: Store):
-    await store.delete_bucket(MockBucket)
-
     class MockBucket2(Base):
         measurement: str
         tag: str
@@ -98,7 +96,7 @@ async def test_add_measurement(store: Store):
 
 @pytest.mark.asyncio
 async def test_delete_bucket(store: Store):
-    class DeleteMockBucket(MockBucket):
+    class DeleteMockBucket(Base):
         measurement: str
         tag: str
         field: str
@@ -107,3 +105,21 @@ async def test_delete_bucket(store: Store):
     await store.delete_bucket(DeleteMockBucket)
 
     assert not store.get_bucket(DeleteMockBucket)
+
+
+@pytest.mark.asyncio
+async def test_raw_query(store: Store):
+    await store.delete_bucket(MockBucket)
+    await store.create_bucket(MockBucket)
+    bucket = store.get_bucket(MockBucket)
+    msmnt = MockBucket(
+        measurement="test measurement",
+        tag="test tag",
+        field=10,
+    )
+    assert bucket
+    await bucket.add(msmnt)
+    result: list[MockBucket] = await bucket.raw_query(
+        'from(bucket: "MockBucket") |> range(start: -1h)'
+    )
+    assert result == [msmnt]

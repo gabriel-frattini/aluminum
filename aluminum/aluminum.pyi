@@ -1,5 +1,10 @@
 from typing import Type
-from aluminum.abstract import AbstractBucket, AbstractRegistry, AbstractStore
+from aluminum.abstract import (
+    AbstractBucket,
+    AbstractRegistry,
+    AbstractSelect,
+    AbstractStore,
+)
 from aluminum.engine import Engine
 
 from aluminum.mapper import Base
@@ -23,6 +28,18 @@ class _Bucket(AbstractBucket):
         Converts the bucket to a dictionary.
 
         :return: the dictionary representation of the bucket
+        """
+    async def query(self, select: AbstractSelect) -> list[Base]:
+        """
+        Queries the bucket using the given select instance.
+
+        :param select: the select instance to use for querying
+        """
+    async def raw_query(self, select: str) -> list[Base]:
+        """
+        Queries the bucket using the given raw query.
+
+        :param select: the raw query to use for querying
         """
 
 class _Store(AbstractStore):

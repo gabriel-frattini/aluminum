@@ -1,7 +1,22 @@
 from abc import ABC, abstractmethod
-from typing import Type
+from typing import Any, Self, Type
 
 from aluminum.base import Base
+
+
+class AbstractRegistry(ABC):
+    @abstractmethod
+    def _autoload(self, base: Type[Base]) -> None:
+        ...
+
+
+class AbstractSelect(ABC):
+    @abstractmethod
+    def __init__(self, query: tuple[str, ...]) -> None:
+        ...
+
+    def where(self, query: tuple[str, ...]) -> Self:
+        ...
 
 
 class AbstractBucket(ABC):
@@ -11,6 +26,14 @@ class AbstractBucket(ABC):
 
     @abstractmethod
     def to_dict(self) -> dict:
+        ...
+
+    @abstractmethod
+    async def query(self, select: AbstractSelect) -> list[Base]:
+        ...
+
+    @abstractmethod
+    async def raw_query(self, select: str) -> Any:
         ...
 
 
@@ -33,10 +56,4 @@ class AbstractStore(ABC):
 
     @abstractmethod
     async def delete_bucket(self, model: Type[Base]) -> bool:
-        ...
-
-
-class AbstractRegistry(ABC):
-    @abstractmethod
-    def _autoload(self, base: Type[Base]) -> None:
         ...
