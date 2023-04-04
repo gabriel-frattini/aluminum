@@ -1,12 +1,26 @@
 from abc import ABC, abstractmethod
-from typing import Any, Self, Type
+from typing import Any, Generic, Type, TypeVar
 
-from aluminum.base import Base
+
+T = TypeVar("T")
+TAbstractSelect = TypeVar("TAbstractSelect", bound="AbstractSelect")
+
+
+class AbstractResult(ABC):
+    ...
+
+
+class AbstractBase(ABC):
+    ...
+
+
+class AbstractMappedColumn(Generic[T], ABC):
+    _col_name: str
 
 
 class AbstractRegistry(ABC):
     @abstractmethod
-    def _autoload(self, base: Type[Base]) -> None:
+    def _autoload(self, AbstractBase: Type[AbstractBase]) -> None:
         ...
 
 
@@ -15,13 +29,13 @@ class AbstractSelect(ABC):
     def __init__(self, query: tuple[str, ...]) -> None:
         ...
 
-    def where(self, query: tuple[str, ...]) -> Self:
+    def where(self: TAbstractSelect, query: tuple[str, ...]) -> TAbstractSelect:
         ...
 
 
 class AbstractBucket(ABC):
     @abstractmethod
-    async def add(self, item: Base) -> None:
+    async def add(self, item: AbstractBase) -> None:
         ...
 
     @abstractmethod
@@ -29,11 +43,15 @@ class AbstractBucket(ABC):
         ...
 
     @abstractmethod
-    async def query(self, select: AbstractSelect) -> list[Base]:
+    async def query(self, select: AbstractSelect) -> list[AbstractBase]:
         ...
 
     @abstractmethod
     async def raw_query(self, select: str) -> Any:
+        ...
+
+    @abstractmethod
+    async def execute(self, select: AbstractSelect) -> AbstractResult:
         ...
 
 
@@ -43,11 +61,11 @@ class AbstractStore(ABC):
         ...
 
     @abstractmethod
-    async def create_bucket(self, model: Type[Base]) -> AbstractBucket:
+    async def create_bucket(self, model: Type[AbstractBase]) -> AbstractBucket:
         ...
 
     @abstractmethod
-    def get_bucket(self, model: Type[Base]) -> AbstractBucket:
+    def get_bucket(self, model: Type[AbstractBase]) -> AbstractBucket:
         ...
 
     @abstractmethod
@@ -55,5 +73,5 @@ class AbstractStore(ABC):
         ...
 
     @abstractmethod
-    async def delete_bucket(self, model: Type[Base]) -> bool:
+    async def delete_bucket(self, model: Type[AbstractBase]) -> bool:
         ...

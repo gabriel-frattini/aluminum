@@ -1,5 +1,7 @@
 from aluminum.abstract import AbstractBucket, AbstractSelect
 from aluminum.base import Base
+from aluminum.select import Select
+from aluminum.result import Result
 
 
 class Bucket(AbstractBucket):
@@ -28,3 +30,6 @@ class Bucket(AbstractBucket):
             0
         ]
         return [BucketClass(**d) for d in query_data]
+
+    async def execute(self, select: Select) -> Result:
+        return await self._bucket.execute(select)

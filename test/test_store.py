@@ -2,6 +2,7 @@ import pytest
 from aluminum import create_engine
 from aluminum import Store
 from aluminum.base import Base
+from aluminum.select import select
 
 from test.conftest import MockBucket, token
 
@@ -109,7 +110,6 @@ async def test_delete_bucket(store: Store):
 
 @pytest.mark.asyncio
 async def test_raw_query(store: Store):
-    await store.delete_bucket(MockBucket)
     await store.create_bucket(MockBucket)
     bucket = store.get_bucket(MockBucket)
     msmnt = MockBucket(
@@ -123,3 +123,13 @@ async def test_raw_query(store: Store):
         'from(bucket: "MockBucket") |> range(start: -1h)'
     )
     assert result == [msmnt]
+
+
+@pytest.mark.asyncio
+async def test_query_bucket(store: Store):
+    await store.create_bucket(MockBucket)
+    bucket = store.get_bucket(MockBucket)
+    assert bucket
+    stmt = select(MockBucket.field, MockBucket.tag).where(MockBucket.field > 15)
+    msmnts = await bucket.execute(stmt)
+    assert msmnts.all() == []

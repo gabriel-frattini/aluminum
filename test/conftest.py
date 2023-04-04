@@ -5,6 +5,9 @@ from aluminum import Base, create_engine
 import logging
 import asyncio
 from aluminum import Store
+import pytest_asyncio
+
+from aluminum.mapped_column import MappedColumn, mapped_column
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +17,9 @@ org_id = os.getenv("ORG_ID") or ""
 
 
 class MockBucket(Base):
-    measurement: str
-    tag: str
-    field: int
+    measurement: MappedColumn[int] = mapped_column("measurement")
+    tag: MappedColumn[str] = mapped_column("tag")
+    field: MappedColumn[int] = mapped_column("field")
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -33,12 +36,8 @@ def store():
 
 
 # There doesn't seem to be a better way to run an async fixture after each test
+@pytest_asyncio.fixture(scope="function", autouse=True)
 async def delete_mock_bucket(store: Store):
+    yield
     logger.info("Deleting mock bucket")
     await store.delete_bucket(MockBucket)
-
-
-@pytest.fixture(scope="function", autouse=True)
-def teardown(store):
-    yield
-    asyncio.run(delete_mock_bucket(store))
