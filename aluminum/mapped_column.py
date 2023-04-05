@@ -17,7 +17,7 @@ class MappedColumn(AbstractMappedColumn[T]):
         return WhereClause(self, value, WhereOperator.LT)
 
     def __le__(self, value):
-        return WhereClause(self, value, WhereOperator.LTE)
+        return WhereClause(self, value, WhereOperator.LE)
 
     def __eq__(self, value):
         return WhereClause(self, value, WhereOperator.EQ)
@@ -26,7 +26,7 @@ class MappedColumn(AbstractMappedColumn[T]):
         return WhereClause(self, value, WhereOperator.NE)
 
     def __ge__(self, value):
-        return WhereClause(self, value, WhereOperator.GTE)
+        return WhereClause(self, value, WhereOperator.GE)
 
     def __gt__(self, value):
         return WhereClause(self, value, WhereOperator.GT)

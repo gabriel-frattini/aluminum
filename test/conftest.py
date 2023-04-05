@@ -1,4 +1,5 @@
 import os
+from attr import dataclass
 from dotenv import load_dotenv
 import pytest
 from aluminum import Base, create_engine
@@ -16,6 +17,7 @@ token = os.getenv("TOKEN") or ""
 org_id = os.getenv("ORG_ID") or ""
 
 
+@dataclass(kw_only=True)
 class MockBucket(Base):
     measurement: MappedColumn[int] = mapped_column("measurement")
     tag: MappedColumn[str] = mapped_column("tag")

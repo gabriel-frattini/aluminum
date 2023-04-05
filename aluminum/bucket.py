@@ -24,7 +24,7 @@ class Bucket(AbstractBucket):
         result = await self._bucket.raw_query(select)
         name = result["name"]
         query_data = result["data"]
-        cached_buckets = Base._get_collected_buckets()["properties"]["buckets"]
+        cached_buckets = Base._get_collected_buckets()["buckets"]
         # TODO
         BucketClass = [bucket for bucket in cached_buckets if bucket.__name__ == name][
             0

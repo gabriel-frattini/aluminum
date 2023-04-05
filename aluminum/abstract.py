@@ -7,7 +7,9 @@ TAbstractSelect = TypeVar("TAbstractSelect", bound="AbstractSelect")
 
 
 class AbstractResult(ABC):
-    ...
+    @abstractmethod
+    def all(self) -> list:  # noqa: A003, D102
+        ...
 
 
 class AbstractBase(ABC):

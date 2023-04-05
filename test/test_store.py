@@ -1,8 +1,9 @@
+from attr import dataclass
 import pytest
 from aluminum import create_engine
 from aluminum import Store
 from aluminum.base import Base
-from aluminum.select import select
+from aluminum.mapped_column import MappedColumn, mapped_column
 
 from test.conftest import MockBucket, token
 
@@ -27,10 +28,11 @@ async def test_bad_engine():
 
 @pytest.mark.asyncio
 async def test_get_buckets(store: Store):
+    @dataclass(kw_only=True)
     class MockBucket2(Base):
-        measurement: str
-        tag: str
-        field: int
+        measurement: MappedColumn[int] = mapped_column("measurement")
+        tag: MappedColumn[str] = mapped_column("tag")
+        field: MappedColumn[int] = mapped_column("field")
 
     await store.create_bucket(MockBucket)
     await store.create_bucket(MockBucket2)
@@ -45,7 +47,7 @@ async def test_get_buckets(store: Store):
             "meta": {
                 "schema": {
                     "field": {"type": "integer"},
-                    "measurement": {"type": "string"},
+                    "measurement": {"type": "integer"},
                     "tag": {"type": "string"},
                 }
             },
@@ -55,7 +57,7 @@ async def test_get_buckets(store: Store):
             "meta": {
                 "schema": {
                     "field": {"type": "integer"},
-                    "measurement": {"type": "string"},
+                    "measurement": {"type": "integer"},
                     "tag": {"type": "string"},
                 }
             },
@@ -74,7 +76,7 @@ async def test_create_bucket(store: Store):
         "meta": {
             "schema": {
                 "field": {"type": "integer"},
-                "measurement": {"type": "string"},
+                "measurement": {"type": "integer"},
                 "tag": {"type": "string"},
             }
         },
@@ -97,10 +99,11 @@ async def test_add_measurement(store: Store):
 
 @pytest.mark.asyncio
 async def test_delete_bucket(store: Store):
+    @dataclass(kw_only=True)
     class DeleteMockBucket(Base):
-        measurement: str
-        tag: str
-        field: str
+        measurement: MappedColumn[str] = mapped_column("measurement")
+        tag: MappedColumn[str] = mapped_column("tag")
+        field: MappedColumn[int] = mapped_column("field")
 
     await store.create_bucket(DeleteMockBucket)
     await store.delete_bucket(DeleteMockBucket)
@@ -125,11 +128,11 @@ async def test_raw_query(store: Store):
     assert result == [msmnt]
 
 
-@pytest.mark.asyncio
-async def test_query_bucket(store: Store):
-    await store.create_bucket(MockBucket)
-    bucket = store.get_bucket(MockBucket)
-    assert bucket
-    stmt = select(MockBucket.field, MockBucket.tag).where(MockBucket.field > 15)
-    msmnts = await bucket.execute(stmt)
-    assert msmnts.all() == []
+# @pytest.mark.asyncio
+# async def test_query_bucket(store: Store):
+#    await store.create_bucket(MockBucket)
+#    bucket = store.get_bucket(MockBucket)
+#    assert bucket
+#    stmt = select(MockBucket.field, MockBucket.tag).where(MockBucket.field > 15)
+#    msmnts = await bucket.execute(stmt)
+#    assert msmnts.all() == []

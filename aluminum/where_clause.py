@@ -6,18 +6,18 @@ from aluminum.abstract import AbstractMappedColumn
 
 class WhereOperator(Enum):
     LT = "lt"
-    LTE = "lte"
+    LE = "le"
     GT = "gt"
-    GTE = "gte"
+    GE = "ge"
     EQ = "eq"
     NE = "ne"
 
 
 WHERE_OPERATORS = {
     WhereOperator.LT: "<",
-    WhereOperator.LTE: "<=",
+    WhereOperator.LE: "<=",
     WhereOperator.GT: ">",
-    WhereOperator.GTE: ">=",
+    WhereOperator.GE: ">=",
     WhereOperator.EQ: "=",
     WhereOperator.NE: "!=",
 }

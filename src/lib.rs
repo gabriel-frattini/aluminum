@@ -29,14 +29,14 @@ impl FieldType {
 
             match data_type {
                 "null" => Ok(Self::None),
-                "boolean" => Ok(Self::Bool),
-                "string" => Ok(Self::Str),
+                "bool" => Ok(Self::Bool),
+                "str" => Ok(Self::Str),
                 "number" => Ok(Self::Float),
-                "integer" => Ok(Self::Int),
+                "int" => Ok(Self::Int),
                 "object" => Ok(Self::Dict {
                     value: Box::new(Self::Str),
                 }),
-                "array" => {
+                "list" => {
                     if let Some(items) = prop.get_item("items") {
                         match items.downcast::<PyList>() {
                             Ok(type_list) => {
@@ -145,9 +145,7 @@ impl Schema {
                 let prop: &PyDict = props.downcast()?;
                 Schema::from_py_dict(prop)
             } else {
-                Err(PyValueError::new_err(
-                    "Invalid schema. No 'properties' found",
-                ))
+                Err(PyValueError::new_err("Invalid schema. No 'properties' found"))
             }
         })
     }
@@ -286,7 +284,7 @@ impl _Bucket {
                         let dict = PyDict::new(py);
                         dict.set_item("measurement", item.measurement)?;
                         dict.set_item("tag", item.tag)?;
-                        dict.set_item("field", item.field)?;
+                        dict.set_item("field", item.field.parse::<i32>().unwrap())?;
                         list.append(dict)?;
                     }
                     result.set_item("data", list)?;
@@ -330,8 +328,8 @@ impl _Registry {
 
             let buckets = buckets.into_py(py);
             let ob: &PyDict = buckets.extract(py)?;
-            if let Some(props) = ob.get_item("properties") {
-                let buckets: &PyList = props.get_item("buckets").unwrap().extract()?;
+            if let Some(props) = ob.get_item("buckets") {
+                let buckets: &PyList = props.extract()?;
                 for b in buckets.iter() {
                     let schema = b.getattr("schema")?.call0()?;
                     let model_name: String = schema.get_item("title").unwrap().extract()?;
