@@ -1,8 +1,7 @@
 from typing import TypeVar
+
 from aluminum.abstract import AbstractMappedColumn
-
 from aluminum.where_clause import WhereClause, WhereOperator
-
 
 T = TypeVar("T")
 

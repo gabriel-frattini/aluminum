@@ -1,12 +1,8 @@
 from typing import Type
-from aluminum.abstract import (
-    AbstractBucket,
-    AbstractRegistry,
-    AbstractSelect,
-    AbstractStore,
-)
-from aluminum.engine import Engine
 
+from aluminum.abstract import (AbstractBucket, AbstractRegistry,
+                               AbstractSelect, AbstractStore)
+from aluminum.engine import Engine
 from aluminum.mapper import Base
 
 class _Bucket(AbstractBucket):

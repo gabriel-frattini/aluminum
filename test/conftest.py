@@ -1,13 +1,13 @@
+import asyncio
+import logging
 import os
+
+import pytest
+import pytest_asyncio
 from attr import dataclass
 from dotenv import load_dotenv
-import pytest
-from aluminum import Base, create_engine
-import logging
-import asyncio
-from aluminum import Store
-import pytest_asyncio
 
+from aluminum import Base, Store, create_engine
 from aluminum.mapped_column import MappedColumn, mapped_column
 
 logger = logging.getLogger(__name__)

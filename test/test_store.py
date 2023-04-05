@@ -1,11 +1,11 @@
-from attr import dataclass
+from test.conftest import MockBucket, token
+
 import pytest
-from aluminum import create_engine
-from aluminum import Store
+from attr import dataclass
+
+from aluminum import Store, create_engine
 from aluminum.base import Base
 from aluminum.mapped_column import MappedColumn, mapped_column
-
-from test.conftest import MockBucket, token
 
 
 @pytest.mark.asyncio

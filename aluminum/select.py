@@ -1,6 +1,6 @@
 from typing import TypeVar
-from aluminum.abstract import AbstractSelect
 
+from aluminum.abstract import AbstractSelect
 from aluminum.where_clause import WhereClause
 
 

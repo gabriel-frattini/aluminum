@@ -1,7 +1,7 @@
 from aluminum.abstract import AbstractBucket, AbstractSelect
 from aluminum.base import Base
-from aluminum.select import Select
 from aluminum.result import Result
+from aluminum.select import Select
 
 
 class Bucket(AbstractBucket):

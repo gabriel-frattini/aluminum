@@ -2,6 +2,7 @@ from types import GenericAlias
 from typing import Any
 
 from attr import dataclass
+
 from aluminum.abstract import AbstractBase
 
 
