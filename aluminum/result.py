@@ -1,6 +1,3 @@
-from aluminum.select import Select, select
-
-
 class Result:
     _results: list[dict]
 

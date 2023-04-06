@@ -1,5 +1,7 @@
-from abc import ABC, abstractmethod
+from abc import ABC, abstractclassmethod, abstractmethod
 from typing import Any, Generic, Type, TypeVar
+
+from aluminum.operator import WhereOperator
 
 T = TypeVar("T")
 TAbstractSelect = TypeVar("TAbstractSelect", bound="AbstractSelect")
@@ -7,16 +9,40 @@ TAbstractSelect = TypeVar("TAbstractSelect", bound="AbstractSelect")
 
 class AbstractResult(ABC):
     @abstractmethod
-    def all(self) -> list:  # noqa: A003, D102
+    async def all(self) -> list:  # noqa: A003, D102
         ...
 
 
 class AbstractBase(ABC):
-    ...
+    @abstractclassmethod
+    def schema(cls) -> dict[Any, Any]:
+        ...
+
+    @abstractmethod
+    def dict(self) -> dict[Any, Any]:
+        ...
 
 
-class AbstractMappedColumn(Generic[T], ABC):
+class AbstractMapped(Generic[T], ABC):
     _col_name: str
+
+
+class AbstractWhereClause(ABC, Generic[T]):
+    _left_operand: AbstractMapped[T]
+    _right_operand: T
+    _operator: WhereOperator
+
+    @abstractmethod
+    def __init__(self, left_operand: AbstractMapped[T], right_operand, operator):
+        ...
+
+    @abstractmethod
+    def __str__(self):
+        ...
+
+    @abstractmethod
+    def get_clause(self) -> tuple[AbstractMapped, WhereOperator, T]:
+        ...
 
 
 class AbstractRegistry(ABC):
@@ -30,7 +56,12 @@ class AbstractSelect(ABC):
     def __init__(self, query: tuple[str, ...]) -> None:
         ...
 
-    def where(self: TAbstractSelect, query: tuple[str, ...]) -> TAbstractSelect:
+    def where(
+        self: TAbstractSelect, *args: AbstractWhereClause[Any]
+    ) -> TAbstractSelect:
+        ...
+
+    def _get_raw_query(self) -> str:
         ...
 
 
@@ -52,7 +83,7 @@ class AbstractBucket(ABC):
         ...
 
     @abstractmethod
-    async def execute(self, select: AbstractSelect) -> AbstractResult:
+    async def execute(self, select: AbstractSelect) -> list[AbstractBase]:
         ...
 
 

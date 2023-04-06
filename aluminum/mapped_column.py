@@ -1,12 +1,12 @@
 from typing import TypeVar
 
-from aluminum.abstract import AbstractMappedColumn
+from aluminum.abstract import AbstractMapped
 from aluminum.where_clause import WhereClause, WhereOperator
 
 T = TypeVar("T")
 
 
-class MappedColumn(AbstractMappedColumn[T]):
+class Mapped(AbstractMapped[T]):
     _col_name: str
 
     def __init__(self, col_name: str):
@@ -31,5 +31,5 @@ class MappedColumn(AbstractMappedColumn[T]):
         return WhereClause(self, value, WhereOperator.GT)
 
 
-def mapped_column(col_name: str) -> MappedColumn[T]:
-    return MappedColumn(col_name)
+def mapped_column(col_name: str) -> Mapped[T]:
+    return Mapped(col_name)

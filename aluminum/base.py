@@ -1,8 +1,6 @@
 from types import GenericAlias
 from typing import Any
 
-from attr import dataclass
-
 from aluminum.abstract import AbstractBase
 
 
@@ -13,17 +11,21 @@ class _Mapper:
         self._collected_buckets["buckets"].append(bucket)
 
 
-@dataclass(init=True, kw_only=True)
 class Base(AbstractBase):
     def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+        cls.__init__ = __init__
+
+        super().__init_subclass__()
         _Mapper()._collect_bucket(cls)
 
     @staticmethod
-    def _get_collected_buckets():
+    def _get_collected_buckets() -> dict[str, list[AbstractBase]]:
         return _Mapper()._collected_buckets
 
-    # TODO
     @classmethod
     def schema(cls) -> dict[Any, Any]:
         schema = {

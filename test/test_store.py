@@ -1,11 +1,11 @@
 from test.conftest import MockBucket, token
 
 import pytest
-from attr import dataclass
 
 from aluminum import Store, create_engine
 from aluminum.base import Base
-from aluminum.mapped_column import MappedColumn, mapped_column
+from aluminum.mapped_column import Mapped, mapped_column
+from aluminum.select import select
 
 
 @pytest.mark.asyncio
@@ -28,11 +28,10 @@ async def test_bad_engine():
 
 @pytest.mark.asyncio
 async def test_get_buckets(store: Store):
-    @dataclass(kw_only=True)
     class MockBucket2(Base):
-        measurement: MappedColumn[int] = mapped_column("measurement")
-        tag: MappedColumn[str] = mapped_column("tag")
-        field: MappedColumn[int] = mapped_column("field")
+        measurement: Mapped[int] = mapped_column("measurement")
+        tag: Mapped[str] = mapped_column("tag")
+        field: Mapped[int] = mapped_column("field")
 
     await store.create_bucket(MockBucket)
     await store.create_bucket(MockBucket2)
@@ -85,11 +84,12 @@ async def test_create_bucket(store: Store):
 
 @pytest.mark.asyncio
 async def test_add_measurement(store: Store):
+    await store.delete_bucket(MockBucket)
     await store.create_bucket(MockBucket)
     bucket = store.get_bucket(MockBucket)
     assert bucket
     measurement = MockBucket(
-        measurement="test measurement",
+        measurement=20,
         tag="test tag",
         field=10,
     )
@@ -99,11 +99,10 @@ async def test_add_measurement(store: Store):
 
 @pytest.mark.asyncio
 async def test_delete_bucket(store: Store):
-    @dataclass(kw_only=True)
     class DeleteMockBucket(Base):
-        measurement: MappedColumn[str] = mapped_column("measurement")
-        tag: MappedColumn[str] = mapped_column("tag")
-        field: MappedColumn[int] = mapped_column("field")
+        measurement: Mapped[str] = mapped_column("measurement")
+        tag: Mapped[str] = mapped_column("tag")
+        field: Mapped[int] = mapped_column("field")
 
     await store.create_bucket(DeleteMockBucket)
     await store.delete_bucket(DeleteMockBucket)
@@ -123,16 +122,18 @@ async def test_raw_query(store: Store):
     assert bucket
     await bucket.add(msmnt)
     result: list[MockBucket] = await bucket.raw_query(
-        'from(bucket: "MockBucket") |> range(start: -1h)'
+        """from(bucket: "MockBucket")
+               |> range(start: -1h)
+        """
     )
-    assert result == [msmnt]
+    assert [r.dict() for r in result] == [msmnt.dict()]
 
 
-# @pytest.mark.asyncio
-# async def test_query_bucket(store: Store):
-#    await store.create_bucket(MockBucket)
-#    bucket = store.get_bucket(MockBucket)
-#    assert bucket
-#    stmt = select(MockBucket.field, MockBucket.tag).where(MockBucket.field > 15)
-#    msmnts = await bucket.execute(stmt)
-#    assert msmnts.all() == []
+@pytest.mark.asyncio
+async def test_query_empty_bucket(store: Store):
+    await store.create_bucket(MockBucket)
+    bucket = store.get_bucket(MockBucket)
+    assert bucket
+    stmt = select(MockBucket).where(MockBucket.field > 15, MockBucket.tag == "test tag")
+    msmnts = await bucket.execute(stmt)
+    assert msmnts == []

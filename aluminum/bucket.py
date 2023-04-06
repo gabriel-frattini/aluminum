@@ -31,5 +31,12 @@ class Bucket(AbstractBucket):
         ]
         return [BucketClass(**d) for d in query_data]
 
-    async def execute(self, select: Select) -> Result:
-        return await self._bucket.execute(select)
+    async def execute(self, select: Select) -> list[Base]:
+        result = await self._bucket.raw_query(select._get_raw_query())
+        name = result["name"]
+        query_data = result["data"]
+        cached_buckets = Base._get_collected_buckets()["buckets"]
+        BucketClass = [bucket for bucket in cached_buckets if bucket.__name__ == name][
+            0
+        ]
+        return [BucketClass(**d) for d in query_data]

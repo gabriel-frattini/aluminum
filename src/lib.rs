@@ -145,7 +145,9 @@ impl Schema {
                 let prop: &PyDict = props.downcast()?;
                 Schema::from_py_dict(prop)
             } else {
-                Err(PyValueError::new_err("Invalid schema. No 'properties' found"))
+                Err(PyValueError::new_err(
+                    "Invalid schema. No 'properties' found",
+                ))
             }
         })
     }
