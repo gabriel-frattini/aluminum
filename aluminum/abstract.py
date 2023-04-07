@@ -26,6 +26,30 @@ class AbstractBase(ABC):
 class AbstractMapped(Generic[T], ABC):
     _col_name: str
 
+    @abstractclassmethod
+    def __lt__(cls, value: T) -> Any:
+        ...
+
+    @abstractclassmethod
+    def __le__(cls, value: T) -> Any:
+        ...
+
+    @abstractclassmethod
+    def __eq__(cls, value: T) -> Any:
+        ...
+
+    @abstractclassmethod
+    def __ne__(cls, value: T) -> Any:
+        ...
+
+    @abstractclassmethod
+    def __gt__(cls, value: T) -> Any:
+        ...
+
+    @abstractclassmethod
+    def __ge__(cls, value: T) -> Any:
+        ...
+
 
 class AbstractWhereClause(ABC, Generic[T]):
     _left_operand: AbstractMapped[T]
@@ -33,15 +57,7 @@ class AbstractWhereClause(ABC, Generic[T]):
     _operator: WhereOperator
 
     @abstractmethod
-    def __init__(self, left_operand: AbstractMapped[T], right_operand, operator):
-        ...
-
-    @abstractmethod
     def __str__(self):
-        ...
-
-    @abstractmethod
-    def get_clause(self) -> tuple[AbstractMapped, WhereOperator, T]:
         ...
 
 
@@ -61,7 +77,7 @@ class AbstractSelect(ABC):
     ) -> TAbstractSelect:
         ...
 
-    def _get_raw_query(self) -> str:
+    def _create_raw_query(self) -> str:
         ...
 
 
@@ -106,4 +122,32 @@ class AbstractStore(ABC):
 
     @abstractmethod
     async def delete_bucket(self, model: Type[AbstractBase]) -> bool:
+        ...
+
+
+class AbstractSelect(ABC):
+    def where(self, *args: AbstractWhereClause[Any]) -> AbstractSelect:
+        ...
+
+    def _where(
+        self,
+        left_operand: AbstractMapped[Any],
+        operator: WhereOperator,
+        right_operand: Any,
+    ) -> AbstractSelect:
+        ...
+
+    def _create_bucket_str(self, name: str) -> None:
+        ...
+
+    def _create_filter_str(self) -> None:
+        ...
+
+    def _create_range_str(self) -> None:
+        ...
+
+    def _create_raw_query(self) -> str:
+        ...
+
+    def _get_raw_query(self) -> str:
         ...

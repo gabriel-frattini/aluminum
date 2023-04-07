@@ -1,9 +1,18 @@
-from typing import Type
+from typing import Any, Type, TypeVar
 
-from aluminum.abstract import (AbstractBucket, AbstractRegistry,
-                               AbstractSelect, AbstractStore)
+from aluminum.abstract import (
+    AbstractBase,
+    AbstractBucket,
+    AbstractMapped,
+    AbstractRegistry,
+    AbstractSelect,
+    AbstractStore,
+    AbstractWhereClause,
+)
 from aluminum.engine import Engine
 from aluminum.mapper import Base
+from aluminum.operator import WhereOperator
+from aluminum.where_clause import WhereClause
 
 class _Bucket(AbstractBucket):
     """
@@ -96,3 +105,88 @@ class _Registry(AbstractRegistry):
 
         :param model: the Model schema whose metadata is to be filled
         """
+
+def get_schema(cls: Type[Base]) -> dict:
+    """
+    Returns the schema for the given model.
+
+    :param cls: the Model schema whose schema is to be retrieved
+    :return: the schema for the model
+    """
+
+class _Mapped(AbstractMapped):
+    """
+    _Mapped is a class that represents a mapped column in the database.
+    """
+
+    def __new__(cls, col_name: str):
+        """
+        Creates a new instance of _Mapped.
+        """
+    def _get_col_name(self) -> str:
+        """
+        Returns the column name.
+
+        :return: the column name
+        """
+
+class _WhereClause(AbstractWhereClause):
+    """
+    _WhereClause is a class that represents a where clause in the database.
+
+    """
+
+    def __new__(
+        cls, left_operand: _Mapped, operator: WhereOperator, right_operand: str
+    ):
+        """
+        Creates a new instance of _WhereClause.
+        """
+        ...
+    def __str__(self): ...
+    def get_left_operand(self) -> _Mapped:
+        """
+        Returns the left operand of the where clause.
+
+        :return: the left operand of the where clause
+        """
+    def get_operator(self) -> WhereOperator:
+        """
+        Returns the operator of the where clause.
+
+        :return: the operator of the where clause
+        """
+    def get_right_operand(self) -> str:
+        """
+        Returns the right operand of the where clause.
+
+        :return: the right operand of the where clause
+        """
+    def get_operator_str(self) -> str:
+        """
+        Returns the string representation of the operator.
+
+        :return: the string representation of the operator
+        """
+
+class _Select(AbstractSelect):
+    """
+    _Select is a class that represents a select clause in the database.
+    """
+
+    def __init__(self, select: AbstractBase):
+        """
+        Creates a new instance of _Select.
+        """
+    def where(self, *args: AbstractWhereClause[Any]) -> AbstractSelect: ...
+    def _where(
+        self,
+        left_operand: AbstractMapped[Any],
+        operator: WhereOperator,
+        right_operand: Any,
+    ) -> AbstractSelect: ...
+    def _create_range_str(self) -> None: ...
+    def _create_filter_str(self) -> None: ...
+    def _create_bucket_str(self, name: str) -> None: ...
+    def _create_raw_query(self) -> str: ...
+    def _get_raw_query(self) -> str: ...

@@ -1,6 +1,7 @@
 extern crate influxdb2;
 
 use std::collections::HashMap;
+use std::hash::Hash;
 
 use futures::prelude::*;
 
@@ -9,9 +10,9 @@ use influxdb2::models::health::Status;
 use influxdb2::models::{PostBucketRequest, Query};
 use influxdb2::Client;
 use influxdb2::FromDataPoint;
-use pyo3::exceptions::{PyConnectionError, PyKeyError, PyValueError};
+use pyo3::exceptions::{self, PyConnectionError, PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyType};
+use pyo3::types::{PyDict, PyDictItems, PyList, PyTuple, PyType};
 
 #[derive(FromPyObject)]
 #[pyclass]
@@ -19,6 +20,289 @@ pub struct PyEngine {
     host: String,
     token: String,
     org_id: String,
+}
+
+#[pyfunction]
+pub fn get_schema(cls: &PyType) -> PyResult<PyObject> {
+    Python::with_gil(|py| {
+        let schema = PyDict::new(py);
+        let title = cls.getattr("__name__");
+        let title: &str = title.unwrap().extract().unwrap();
+        schema.set_item("title", title)?;
+        schema.set_item("type", "object")?;
+        schema.set_item("required", PyList::empty(py))?;
+        let schema_properties = PyDict::new(py);
+
+        let items = cls
+            .getattr("__annotations__")?
+            .getattr("items")?
+            .call0()?
+            .downcast::<PyDictItems>()?;
+
+        items
+            .iter()?
+            .collect::<PyResult<Vec<_>>>()?
+            .iter()
+            .try_for_each(|item| {
+                let (key, value) = item.extract::<(&str, &PyAny)>().unwrap();
+                let col_properties = PyDict::new(py);
+                match value.getattr("__args__") {
+                    Ok(v) => {
+                        let v: &PyTuple = v.downcast()?;
+                        let col_type = v[0].getattr("__name__")?;
+                        let col_type: &str = col_type.extract()?;
+                        col_properties.set_item("title", key)?;
+                        col_properties.set_item("type", col_type)?;
+                        schema_properties.set_item(key, col_properties)?;
+                    }
+                    Err(_) => {
+                        col_properties.set_item("title", key)?;
+                        let col_type = value.getattr("__class__")?.getattr("__name__")?;
+                        let col_type: &str = col_type.extract()?;
+                        col_properties.set_item("title", key)?;
+                        col_properties.set_item("type", col_type)?;
+                        schema_properties.set_item(key, col_properties)?;
+                    }
+                };
+
+                Ok::<(), PyErr>(())
+            })
+            .unwrap();
+        schema.set_item("properties", schema_properties)?;
+        Ok(schema.into())
+    })
+}
+
+#[pyclass(subclass)]
+pub struct _Select {
+    _select: Py<PyType>,
+    _where_clauses: Vec<_WhereClause>,
+    _raw_query: String,
+}
+
+#[derive(Clone)]
+#[pyclass(subclass)]
+pub struct _Mapped {
+    _col_name: String,
+}
+
+#[pyclass(subclass)]
+pub struct _WhereClause {
+    _left_operand: _Mapped,
+    _right_operand: Py<PyAny>,
+    _operator: _WhereOperator,
+}
+
+#[pymethods]
+impl _WhereClause {
+    #[new]
+    pub(crate) fn new(
+        left_operand: _Mapped,
+        right_operand: Py<PyAny>,
+        operator: _WhereOperator,
+    ) -> Self {
+        Self {
+            _left_operand: left_operand,
+            _right_operand: right_operand,
+            _operator: operator,
+        }
+    }
+
+    pub(crate) fn __str__(&self) -> PyResult<String> {
+        let left_operand = &self._left_operand._col_name;
+        let right_operand = self._right_operand.to_string();
+        let operator = match self._operator {
+            _WhereOperator::EQ => "==",
+            _WhereOperator::NE => "!=",
+            _WhereOperator::GT => ">",
+            _WhereOperator::GE => ">=",
+            _WhereOperator::LT => "<",
+            _WhereOperator::LE => "<=",
+        };
+        Ok(format!("{} {} {}", left_operand, operator, right_operand))
+    }
+
+    pub(crate) fn get_left_operand(&self) -> PyResult<_Mapped> {
+        Ok(self._left_operand.clone())
+    }
+
+    pub(crate) fn get_right_operand(&self) -> PyResult<String> {
+        Ok(self._right_operand.to_string())
+    }
+
+    pub(crate) fn get_operator_str(&self) -> PyResult<String> {
+        let operator = match self._operator {
+            _WhereOperator::EQ => "==",
+            _WhereOperator::NE => "!=",
+            _WhereOperator::GT => ">",
+            _WhereOperator::GE => ">=",
+            _WhereOperator::LT => "<",
+            _WhereOperator::LE => "<=",
+        };
+        Ok(operator.to_string())
+    }
+
+    pub(crate) fn get_operator(&self) -> PyResult<_WhereOperator> {
+        Ok(self._operator.clone())
+    }
+}
+
+#[derive(Clone)]
+#[pyclass]
+pub enum _WhereOperator {
+    EQ,
+    NE,
+    GT,
+    GE,
+    LT,
+    LE,
+}
+
+#[pymethods]
+impl _Mapped {
+    #[new]
+    pub(crate) fn new(col_name: String) -> Self {
+        Self {
+            _col_name: col_name,
+        }
+    }
+
+    pub(crate) fn __eq__(&mut self, value: Py<PyAny>) -> _WhereClause {
+        _WhereClause {
+            _left_operand: self.clone(),
+            _right_operand: value,
+            _operator: _WhereOperator::EQ,
+        }
+    }
+
+    pub(crate) fn __ne__(&mut self, value: Py<PyAny>) -> _WhereClause {
+        _WhereClause {
+            _left_operand: self.clone(),
+            _right_operand: value,
+            _operator: _WhereOperator::NE,
+        }
+    }
+
+    pub(crate) fn __gt__(&mut self, value: Py<PyAny>) -> _WhereClause {
+        _WhereClause {
+            _left_operand: self.clone(),
+            _right_operand: value,
+            _operator: _WhereOperator::GT,
+        }
+    }
+
+    pub(crate) fn __ge__(&mut self, value: Py<PyAny>) -> _WhereClause {
+        _WhereClause {
+            _left_operand: self.clone(),
+            _right_operand: value,
+            _operator: _WhereOperator::GE,
+        }
+    }
+
+    pub(crate) fn __lt__(&mut self, value: Py<PyAny>) -> _WhereClause {
+        _WhereClause {
+            _left_operand: self.clone(),
+            _right_operand: value,
+            _operator: _WhereOperator::LT,
+        }
+    }
+
+    pub(crate) fn __le__(&mut self, value: Py<PyAny>) -> _WhereClause {
+        _WhereClause {
+            _left_operand: self.clone(),
+            _right_operand: value,
+            _operator: _WhereOperator::LE,
+        }
+    }
+
+    pub(crate) fn _get_col_name(&self) -> PyResult<String> {
+        Ok(self._col_name.clone())
+    }
+}
+
+impl _WhereOperator {
+    fn value(&self) -> &str {
+        match *self {
+            _WhereOperator::EQ => "==",
+            _WhereOperator::NE => "!=",
+            _WhereOperator::GT => ">",
+            _WhereOperator::GE => ">=",
+            _WhereOperator::LT => "<",
+            _WhereOperator::LE => "<=",
+        }
+    }
+
+    fn of(value: &str) -> PyResult<Self> {
+        match value {
+            "==" => Ok(_WhereOperator::EQ),
+            "!=" => Ok(_WhereOperator::NE),
+            ">" => Ok(_WhereOperator::GT),
+            ">=" => Ok(_WhereOperator::GE),
+            "<" => Ok(_WhereOperator::LT),
+            "<=" => Ok(_WhereOperator::LE),
+            _ => Err(PyValueError::new_err(format!(
+                "Invalid operator: {}",
+                value
+            ))),
+        }
+    }
+}
+
+#[pymethods]
+impl _Select {
+    #[new]
+    pub(crate) fn new(select: Py<PyType>) -> Self {
+        Self {
+            _select: select,
+            _where_clauses: Vec::new(),
+            _raw_query: String::new(),
+        }
+    }
+
+    pub(crate) fn _where(
+        &mut self,
+        left_operand: _Mapped,
+        right_operand: Py<PyAny>,
+        operator: String,
+    ) {
+        self._where_clauses.push(_WhereClause {
+            _left_operand: left_operand,
+            _right_operand: right_operand,
+            _operator: _WhereOperator::of(&operator).unwrap(),
+        });
+    }
+
+    pub(crate) fn _create_bucket_str(&mut self, name: String) {
+        self._raw_query = format!("from(bucket: \"{}\")", name);
+    }
+
+    pub(crate) fn _create_filter_str(&mut self) {
+        if !self._where_clauses.is_empty() {
+            for where_clause in self._where_clauses.iter() {
+                self._raw_query.push_str(" |> filter(fn: (r) => ");
+                let left_operand = &where_clause._left_operand._col_name;
+                let right_operand = where_clause._right_operand.to_string();
+                let operator: &str = where_clause._operator.value();
+                self._raw_query.push_str(&format!(
+                    "r.{} {} \"{}\")",
+                    left_operand, operator, right_operand
+                ));
+            }
+        }
+    }
+
+    pub(crate) fn _create_range_str(&mut self) {
+        self._raw_query.push_str(" |> range(start: -1h)");
+    }
+
+    pub(crate) fn _create_raw_query(&mut self) {
+        self._create_range_str();
+        self._create_filter_str();
+    }
+
+    pub(crate) fn _get_raw_query(&self) -> PyResult<String> {
+        Ok(self._raw_query.to_string())
+    }
 }
 
 impl FieldType {
@@ -475,8 +759,13 @@ impl _Store {
 fn aluminum(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<_Store>()?;
     m.add_class::<_Registry>()?;
+    m.add_class::<_Select>()?;
+    m.add_class::<_WhereClause>()?;
+    m.add_class::<_WhereOperator>()?;
+    m.add_class::<_Mapped>()?;
     m.add_class::<PyEngine>()?;
     m.add_class::<_Bucket>()?;
     m.add_function(wrap_pyfunction!(create_engine, m)?)?;
+    m.add_function(wrap_pyfunction!(get_schema, m)?)?;
     Ok(())
 }

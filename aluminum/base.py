@@ -2,6 +2,7 @@ from types import GenericAlias
 from typing import Any
 
 from aluminum.abstract import AbstractBase
+from aluminum.aluminum import get_schema
 
 
 class _Mapper:
@@ -28,23 +29,7 @@ class Base(AbstractBase):
 
     @classmethod
     def schema(cls) -> dict[Any, Any]:
-        schema = {
-            "title": cls.__name__,
-            "type": "object",
-            "properties": {},
-            "required": [],
-        }
-        for key, val in cls.__annotations__.items():
-            if type(val).__name__ == "_" + GenericAlias.__name__:
-                schema["properties"][key] = {
-                    "title": key,
-                    "type": val.__args__[0].__name__,
-                }
-                schema["required"].append(key)
-            else:
-                schema["properties"][key] = {"title": key, "type": type(val).__name__}
-                schema["required"].append(key)
-        return schema
+        return get_schema(cls)
 
     def dict(self):
         return self.__dict__

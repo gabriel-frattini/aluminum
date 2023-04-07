@@ -1,4 +1,4 @@
-from test.conftest import MockBucket, token
+from test.conftest import MockBucket, delete_mock_bucket, token
 
 import pytest
 
@@ -84,7 +84,6 @@ async def test_create_bucket(store: Store):
 
 @pytest.mark.asyncio
 async def test_add_measurement(store: Store):
-    await store.delete_bucket(MockBucket)
     await store.create_bucket(MockBucket)
     bucket = store.get_bucket(MockBucket)
     assert bucket

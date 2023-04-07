@@ -1,7 +1,7 @@
 from typing import Any, TypeVar
 
 from aluminum.abstract import AbstractBase, AbstractSelect
-from aluminum.where_clause import WhereClause
+from aluminum.aluminum import _WhereClause, _Select, get_schema
 
 
 def select(*args):
@@ -16,28 +16,37 @@ TSelect = TypeVar("TSelect", bound="Select")
 
 class Select(AbstractSelect):
     _select: AbstractBase
-    _where_clauses: tuple[WhereClause, ...]
+    _where_clauses: tuple[_WhereClause, ...]
     _raw_query: str
+    _select_engine: _Select
 
-    def __init__(self, select) -> None:
+    def __init__(self, select: AbstractBase) -> None:
         self._select = select
+        self._select_engine = _Select(select)
 
-    def where(self: TSelect, *args: WhereClause[Any]) -> TSelect:
+    def where(self: TSelect, *args: _WhereClause) -> TSelect:
+        for arg in args:
+            self._select_engine._where(
+                left_operand=arg.get_left_operand(),
+                operator=arg.get_operator_str(),
+                right_operand=arg.get_right_operand(),
+            )
         self._where_clauses = args
         return self
 
     def _create_bucket_str(self) -> None:
-        self._raw_query = f'from(bucket: "{self._select.schema()["title"]}")'
+        _bucket_name: str = self._select.schema()["title"]
+        self._select_engine._create_bucket_str(_bucket_name)
 
     def _create_filter_str(self) -> None:
-        for where_clause in self._where_clauses:
-            self._raw_query += f' |> filter(fn: (r) => r.{where_clause._left_operand._col_name} {where_clause._operator.value} "{where_clause._right_operand}")'
+        self._select_engine._create_filter_str()
 
     def _create_range_str(self) -> None:
-        self._raw_query += " |> range(start: -1h)"
+        self._select_engine._create_range_str()
+
+    def _create_raw_query(self):
+        self._create_bucket_str()
+        self._select_engine._create_raw_query()
 
     def _get_raw_query(self) -> str:
-        self._create_bucket_str()
-        self._create_range_str()
-        self._create_filter_str()
-        return self._raw_query
+        return self._select_engine._get_raw_query()
