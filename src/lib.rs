@@ -1,7 +1,6 @@
 extern crate influxdb2;
 
 use std::collections::HashMap;
-use std::hash::Hash;
 
 use futures::prelude::*;
 
@@ -10,7 +9,7 @@ use influxdb2::models::health::Status;
 use influxdb2::models::{PostBucketRequest, Query};
 use influxdb2::Client;
 use influxdb2::FromDataPoint;
-use pyo3::exceptions::{self, PyConnectionError, PyKeyError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyConnectionError, PyKeyError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictItems, PyList, PyTuple, PyType};
 
@@ -283,6 +282,14 @@ impl _Select {
                 let left_operand = &where_clause._left_operand._col_name;
                 let right_operand = where_clause._right_operand.to_string();
                 let operator: &str = where_clause._operator.value();
+                if let Ok(right_operand) = right_operand.parse::<i32>() {
+                    self._raw_query.push_str(&format!(
+                        "r.{} {} {})",
+                        left_operand, operator, right_operand
+                    ));
+                    continue;
+                }
+
                 self._raw_query.push_str(&format!(
                     "r.{} {} \"{}\")",
                     left_operand, operator, right_operand

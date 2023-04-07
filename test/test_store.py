@@ -113,12 +113,12 @@ async def test_delete_bucket(store: Store):
 async def test_raw_query(store: Store):
     await store.create_bucket(MockBucket)
     bucket = store.get_bucket(MockBucket)
+    assert bucket
     msmnt = MockBucket(
         measurement="test measurement",
         tag="test tag",
         field=10,
     )
-    assert bucket
     await bucket.add(msmnt)
     result: list[MockBucket] = await bucket.raw_query(
         """from(bucket: "MockBucket")
@@ -136,3 +136,19 @@ async def test_query_empty_bucket(store: Store):
     stmt = select(MockBucket).where(MockBucket.field > 15, MockBucket.tag == "test tag")
     msmnts = await bucket.execute(stmt)
     assert msmnts == []
+
+
+@pytest.mark.asyncio
+async def test_query_bucket_with_no_filter(store: Store):
+    await store.create_bucket(MockBucket)
+    bucket = store.get_bucket(MockBucket)
+    assert bucket
+    msmnt = MockBucket(
+        measurement="test measurement",
+        tag="test tag",
+        field=10,
+    )
+    await bucket.add(msmnt)
+    stmt = select(MockBucket)
+    result: list[MockBucket] = await bucket.execute(stmt)
+    assert [r.dict() for r in result] == [msmnt.dict()]
