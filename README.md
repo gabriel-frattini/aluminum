@@ -1,27 +1,12 @@
-
-Aluminum
-==========
+# Aluminum
 
 A fast python ORM for InfluxDB 2 written in Rust.
 
+# Introduction
 
-Introduction
-==========
+Aluminum is a Python library written in Rust that provides an ORM interface for interacting with InfluxDB.
 
-Aluminum is a fast Python library written in Rust that provides an ORM interface for interacting with InfluxDB.
-
-
-Getting Started
-==========
-
-This section will guide you through the basic steps of using the library. It will cover:
-
-- Setting up a connection with an engine
-- Creating a bucket
-- Retrieving a bucket
-- Adding data to a bucket
-- Querying data from a bucket
-
+# Getting Started
 
 #### Installation
 
@@ -30,6 +15,8 @@ you can install Aluminum using pip:
 ```sh
 pip install aluminum
 ```
+
+#### Setting up a connection
 
 To use the library, you first need to create an instance of an engine and bind it to the Store.
 
@@ -48,32 +35,36 @@ store = Store(bind=engine)
 store.collect(Base)
 ```
 
-#### The Store
+#### Creating a bucket
 
-After setting up the store, you can create a bucket by calling the `create_bucket` method of the Store instance. 
-The method takes a class that inherits from `Base` as an argument and returns a bucket instance. 
+A bucket is represented by a class that inherits from `Base`
 
-```python
-from aluminum.base import Base
+````python
+from aluminum import Base, Mapped, mapped_column
 
 class SensorBucket(Base):
-  tag: str
-  measurement: str
-  field: int
+  tag: Mapped[str] = mapped_column("tag")
+  measurement: Mapped[str] = mapped_column("measurement")
+  field: Mapped[int] = mapped_column("field")
+```
 
+
+You can create a bucket by calling the `create_bucket` method of the Store instance.
+
+```python
 async def run_async_example():
   # Create a bucket
   bucket = await store.create_bucket(SensorBucket)
-  
+
   # Get a bucket
   bucket = store.get_bucket(SensorBucket)
-  
+
   # Get all buckets
   buckets = store.get_buckets()
-  
+
   # Delete a bucket
   await store.delete_bucket(SensorBucket)
-```
+````
 
 #### Adding Data to a Bucket
 
@@ -83,9 +74,9 @@ To add data to a bucket, you can call the `add` method of the bucket instance. T
 from aluminum.base import Base
 
 class SensorBucket(Base):
-  tag: str
-  measurement: str
-  field: int
+  tag: Mapped[str] = mapped_column("tag")
+  measurement: Mapped[str] = mapped_column("measurement")
+  field: Mapped[int] = mapped_column("field")
 
 async def run_async_example():
   msmnt = SensorBucket(tag="My Tag", measurement="My Measurement", field=10)
