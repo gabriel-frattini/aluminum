@@ -4,7 +4,7 @@ A fast python ORM for InfluxDB 2 written in Rust.
 
 # Introduction
 
-Aluminum is a Python library written in Rust that provides an ORM interface for interacting with InfluxDB.
+Aluminum is a Python library written in Rust that provides an ORM interface for interacting with InfluxDB 2.
 
 # Getting Started
 
@@ -39,7 +39,7 @@ store.collect(Base)
 
 A bucket is represented by a class that inherits from `Base`
 
-````python
+```python
 from aluminum import Base, Mapped, mapped_column
 
 class SensorBucket(Base):
@@ -47,7 +47,6 @@ class SensorBucket(Base):
   measurement: Mapped[str] = mapped_column("measurement")
   field: Mapped[int] = mapped_column("field")
 ```
-
 
 You can create a bucket by calling the `create_bucket` method of the Store instance.
 
@@ -64,7 +63,7 @@ async def run_async_example():
 
   # Delete a bucket
   await store.delete_bucket(SensorBucket)
-````
+```
 
 #### Adding Data to a Bucket
 
