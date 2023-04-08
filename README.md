@@ -2,7 +2,7 @@
 Aluminum
 ==========
 
-Aluminum: A fast python ORM for InfluxDB 2 written in Rust.
+A fast python ORM for InfluxDB 2 written in Rust.
 
 
 Introduction
