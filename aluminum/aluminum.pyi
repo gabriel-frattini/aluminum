@@ -10,9 +10,8 @@ from aluminum.abstract import (
     AbstractWhereClause,
 )
 from aluminum.engine import Engine
-from aluminum.mapper import Base
+from aluminum.base import Base
 from aluminum.operator import WhereOperator
-from aluminum.where_clause import WhereClause
 
 class _Bucket(AbstractBucket):
     """
@@ -178,15 +177,51 @@ class _Select(AbstractSelect):
         """
         Creates a new instance of _Select.
         """
-    def where(self, *args: AbstractWhereClause[Any]) -> AbstractSelect: ...
+    def where(self, *args: AbstractWhereClause[Any]) -> AbstractSelect: 
+    """
+    Adds a where clause to the select clause.
+
+    :param args: the where clauses to add
+    :return: the select clause
+    """
+    ...
     def _where(
         self,
         left_operand: AbstractMapped[Any],
         operator: WhereOperator,
         right_operand: Any,
-    ) -> AbstractSelect: ...
-    def _create_range_str(self) -> None: ...
-    def _create_filter_str(self) -> None: ...
-    def _create_bucket_str(self, name: str) -> None: ...
-    def _create_raw_query(self) -> str: ...
-    def _get_raw_query(self) -> str: ...
+    ) -> AbstractSelect: 
+    """
+    Adds a where clause to the select clause.
+
+    :param left_operand: the left operand of the where clause
+    :param operator: the operator of the where clause
+    :param right_operand: the right operand of the where clause
+    :return: the select clause
+    """
+    ...
+    def _create_range_str(self) -> None: 
+    """
+    Creates the range string for the select clause.
+    """
+    ...
+    def _create_filter_str(self) -> None: 
+    """
+    Creates the filter string for the select clause.
+    """
+    ...
+    def _create_bucket_str(self, name: str) -> None: 
+    """
+    Creates the bucket string for the select clause.
+    """
+    ...
+    def _create_raw_query(self) -> str:
+    """
+    Creates the raw query for the select clause.
+    """
+    ...
+    def _get_raw_query(self) -> str:
+    """
+    Returns the raw query for the select clause.
+    """
+    ...

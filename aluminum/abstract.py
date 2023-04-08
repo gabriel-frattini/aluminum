@@ -1,5 +1,5 @@
 from abc import ABC, abstractclassmethod, abstractmethod
-from typing import Any, Generic, Type, TypeVar
+from typing import Any, Generic, Self, Type, TypeVar
 
 from aluminum.operator import WhereOperator
 
@@ -68,16 +68,30 @@ class AbstractRegistry(ABC):
 
 
 class AbstractSelect(ABC):
-    @abstractmethod
-    def __init__(self, query: tuple[str, ...]) -> None:
+    def where(self, *args: AbstractWhereClause[Any]) -> Self:
         ...
 
-    def where(
-        self: TAbstractSelect, *args: AbstractWhereClause[Any]
-    ) -> TAbstractSelect:
+    def _where(
+        self,
+        left_operand: AbstractMapped[Any],
+        operator: WhereOperator,
+        right_operand: Any,
+    ) -> Self:
+        ...
+
+    def _create_bucket_str(self, name: str) -> None:
+        ...
+
+    def _create_filter_str(self) -> None:
+        ...
+
+    def _create_range_str(self) -> None:
         ...
 
     def _create_raw_query(self) -> str:
+        ...
+
+    def _get_raw_query(self) -> str:
         ...
 
 
@@ -122,32 +136,4 @@ class AbstractStore(ABC):
 
     @abstractmethod
     async def delete_bucket(self, model: Type[AbstractBase]) -> bool:
-        ...
-
-
-class AbstractSelect(ABC):
-    def where(self, *args: AbstractWhereClause[Any]) -> AbstractSelect:
-        ...
-
-    def _where(
-        self,
-        left_operand: AbstractMapped[Any],
-        operator: WhereOperator,
-        right_operand: Any,
-    ) -> AbstractSelect:
-        ...
-
-    def _create_bucket_str(self, name: str) -> None:
-        ...
-
-    def _create_filter_str(self) -> None:
-        ...
-
-    def _create_range_str(self) -> None:
-        ...
-
-    def _create_raw_query(self) -> str:
-        ...
-
-    def _get_raw_query(self) -> str:
         ...

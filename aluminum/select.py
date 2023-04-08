@@ -1,7 +1,7 @@
 from typing import Any, TypeVar
 
 from aluminum.abstract import AbstractBase, AbstractSelect
-from aluminum.aluminum import _WhereClause, _Select, get_schema
+from aluminum.aluminum import _WhereClause, _Select
 
 
 def select(*args):
