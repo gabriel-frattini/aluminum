@@ -70,7 +70,7 @@ async def run_async_example():
 To add data to a bucket, you can call the `add` method of the bucket instance. The add method takes an instance of the bucket class as an argument.
 
 ```python
-from aluminum.base import Base
+from aluminum.base import Base, mapped_column, Mapped
 
 class SensorBucket(Base):
   tag: Mapped[str] = mapped_column("tag")
